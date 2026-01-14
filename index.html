@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard AppSheet - Avançado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; min-height: 100vh; }
+        .chart-container { position: relative; height: 280px; width: 100%; }
+        .animate-fade { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- Login -->
+    <div id="loginView" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade mx-4 border border-slate-100">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-lg mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 tracking-tight">DSQA Login Dinâmico</h2>
+                <p class="text-gray-500 text-sm italic">Entidade como Utilizador</p>
+            </div>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Entidade</label>
+                    <input type="text" id="userInput" placeholder="ex: RoqLaser" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Password (Entidade Invertida)</label>
+                    <input type="password" id="passInput" placeholder="••••••••" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+                <button onclick="handleLogin()" id="loginBtn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95">
+                    Aceder ao Painel
+                </button>
+                <p id="loginError" class="text-red-500 text-xs text-center hidden font-medium p-2 bg-red-50 rounded-lg"></p>
+            </div>
+            <div class="mt-8 text-center border-t border-slate-50 pt-6">
+                <p class="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Somengil Quality Assurance</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="mainView" class="hidden w-full max-w-[1600px] mx-auto p-4 md:p-8 animate-fade">
+        <!-- Header -->
+        <header class="mb-8 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Painel Analítico de Qualidade</h1>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <p id="userWelcome" class="text-slate-500 text-sm font-medium"></p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 block">Filtro de Anos</label>
+                    <div id="yearCheckboxes" class="flex flex-wrap gap-2"></div>
+                </div>
+                <button onclick="location.reload()" class="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all font-bold text-sm flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7" /></svg>
+                    Terminar Sessão
+                </button>
+            </div>
+        </header>
+
+        <!-- Top KPIs -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Registos</p>
+                <h3 id="kpiTotal" class="text-3xl font-black text-slate-800">-</h3>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Entidades Ativas</p>
+                <h3 id="kpiEntidades" class="text-3xl font-black text-blue-600">-</h3>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">RNCs em Aberto</p>
+                <h3 id="kpiAberto" class="text-3xl font-black text-red-500">-</h3>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Taxa de Resolução</p>
+                <h3 id="kpiTaxa" class="text-3xl font-black text-green-600">-</h3>
+            </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span> Tendência Mensal
+                </h3>
+                <div class="chart-container"><canvas id="lineTrendChart"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full"></span> Status Geral RNCs
+                </h3>
+                <div class="chart-container flex items-center justify-center">
+                    <canvas id="rncPieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Total RNCs por Ano
+                </h3>
+                <div class="chart-container"><canvas id="yearComparisonChart"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-orange-500 rounded-full"></span> Top 5 Keywords
+                </h3>
+                <div class="chart-container"><canvas id="topKeywordsChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
+            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <span class="w-2 h-2 bg-slate-400 rounded-full"></span> Distribuição Completa de Keywords (%)
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-4 max-h-64 overflow-y-auto custom-scrollbar pr-4" id="keywordPercentageList">
+                <!-- JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MOCK DATA PARA PRÉ-VISUALIZAÇÃO NO CANVAS
+        const mockData = [
+            { entidade: "RoqLaser", ano: 2023, data: "2023-01-15", keyword: "Corte", status: "Fechado" },
+            { entidade: "Somengil", ano: 2024, data: "2024-02-10", keyword: "Soldadura", status: "Aberto" },
+            { entidade: "RoqLaser", ano: 2024, data: "2024-03-05", keyword: "Acabamento", status: "Aberto" },
+            { entidade: "Somengil", ano: 2023, data: "2023-05-20", keyword: "Corte", status: "Fechado" },
+            { entidade: "RoqLaser", ano: 2024, data: "2024-01-12", keyword: "Corte", status: "Fechado" },
+            { entidade: "Outra", ano: 2023, data: "2023-11-30", keyword: "Material", status: "Aberto" },
+            { entidade: "RoqLaser", ano: 2022, data: "2022-12-01", keyword: "Corte", status: "Fechado" }
+        ];
+
+        let sessionInfo = null;
+        let allData = [];
+        let selectedYears = [];
+        let charts = {};
+
+        function handleLogin() {
+            const user = document.getElementById('userInput').value.trim();
+            const pass = document.getElementById('passInput').value.trim();
+            const btn = document.getElementById('loginBtn');
+            const err = document.getElementById('loginError');
+
+            if (!user || !pass) {
+                showLoginError("Preencha todos os campos.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "A validar...";
+
+            if (typeof google !== 'undefined' && google.script) {
+                google.script.run
+                    .withSuccessHandler(res => {
+                        if (res.success) {
+                            sessionInfo = res;
+                            startDashboard();
+                        } else {
+                            showLoginError(res.message);
+                        }
+                    })
+                    .checkLogin(user, pass);
+            } else {
+                // Lógica de simulação no Canvas
+                setTimeout(() => {
+                    const isReverse = pass === user.split('').reverse().join('');
+                    const isAdmin = (user.toLowerCase() === "dsqa" && pass === "789987");
+
+                    if (isAdmin || isReverse) {
+                        sessionInfo = { 
+                            success: true, 
+                            filter: isAdmin ? "all" : user, 
+                            username: isAdmin ? "Administrador (Simulação)" : user 
+                        };
+                        startDashboard();
+                    } else {
+                        showLoginError("Password inválida. Deve ser o nome da entidade invertido.");
+                    }
+                }, 600);
+            }
+        }
+
+        function showLoginError(msg) {
+            const btn = document.getElementById('loginBtn');
+            const err = document.getElementById('loginError');
+            err.innerText = msg;
+            err.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerText = "Aceder ao Painel";
+        }
+
+        function startDashboard() {
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('mainView').classList.remove('hidden');
+            document.getElementById('userWelcome').innerText = `Entidade: ${sessionInfo.username}`;
+            fetchData();
+        }
+
+        function fetchData() {
+            if (typeof google !== 'undefined' && google.script) {
+                google.script.run.withSuccessHandler(data => {
+                    allData = data;
+                    initYearFilters();
+                    updateDashboard();
+                }).getSheetData(sessionInfo.filter);
+            } else {
+                allData = sessionInfo.filter === "all" ? mockData : mockData.filter(d => d.entidade.toLowerCase() === sessionInfo.filter.toLowerCase());
+                initYearFilters();
+                updateDashboard();
+            }
+        }
+
+        function initYearFilters() {
+            const anos = [...new Set(allData.map(d => d.ano))].filter(Boolean).sort((a,b) => b-a);
+            const container = document.getElementById('yearCheckboxes');
+            container.innerHTML = '';
+            selectedYears = [...anos];
+
+            anos.forEach(ano => {
+                const btn = document.createElement('button');
+                btn.id = `year_${ano}`;
+                btn.innerText = ano;
+                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm";
+                btn.onclick = () => toggleYear(ano);
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleYear(ano) {
+            const btn = document.getElementById(`year_${ano}`);
+            if (selectedYears.includes(ano)) {
+                selectedYears = selectedYears.filter(y => y !== ano);
+                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
+            } else {
+                selectedYears.push(ano);
+                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm";
+            }
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const filtered = allData.filter(d => selectedYears.includes(d.ano));
+
+            // KPIs
+            const abertas = filtered.filter(d => d.status?.toLowerCase() === 'aberto').length;
+            const fechadas = filtered.filter(d => d.status?.toLowerCase() === 'fechado').length;
+            const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
+
+            document.getElementById('kpiTotal').innerText = filtered.length;
+            document.getElementById('kpiEntidades').innerText = [...new Set(filtered.map(d => d.entidade))].length;
+            document.getElementById('kpiAberto').innerText = abertas;
+            document.getElementById('kpiTaxa').innerText = taxa + '%';
+
+            renderTrendChart(filtered);
+            renderYearComparisonChart(filtered);
+            renderPieChart(abertas, fechadas);
+            renderKeywordCharts(filtered);
+        }
+
+        function renderTrendChart(data) {
+            const groups = data.reduce((acc, d) => {
+                if (!d.data) return acc;
+                const monthYear = d.data.substring(0, 7);
+                acc[monthYear] = (acc[monthYear] || 0) + 1;
+                return acc;
+            }, {});
+
+            const sortedKeys = Object.keys(groups).sort();
+            if (charts.trend) charts.trend.destroy();
+            charts.trend = new Chart(document.getElementById('lineTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: sortedKeys.map(k => {
+                        const [y, m] = k.split('-');
+                        const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+                        return `${meses[parseInt(m)-1]} ${y}`;
+                    }),
+                    datasets: [{
+                        data: sortedKeys.map(k => groups[k]),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [5, 5] }, ticks: { stepSize: 1 } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderYearComparisonChart(data) {
+            const yearCounts = selectedYears.sort().reduce((acc, ano) => {
+                acc[ano] = data.filter(d => d.ano === ano).length;
+                return acc;
+            }, {});
+
+            if (charts.yearBar) charts.yearBar.destroy();
+            charts.yearBar = new Chart(document.getElementById('yearComparisonChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(yearCounts),
+                    datasets: [{
+                        data: Object.values(yearCounts),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 12,
+                        barThickness: 30
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+                }
+            });
+        }
+
+        function renderPieChart(aberto, fechado) {
+            if (charts.pie) charts.pie.destroy();
+            charts.pie = new Chart(document.getElementById('rncPieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Aberto', 'Fechado'],
+                    datasets: [{
+                        data: [aberto, fechado],
+                        backgroundColor: ['#ef4444', '#22c55e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function renderKeywordCharts(data) {
+            const counts = data.reduce((acc, curr) => {
+                if (curr.keyword) acc[curr.keyword] = (acc[curr.keyword] || 0) + 1;
+                return acc;
+            }, {});
+
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const total = data.length;
+
+            if (charts.bar) charts.bar.destroy();
+            charts.bar = new Chart(document.getElementById('topKeywordsChart'), {
+                type: 'bar',
+                data: {
+                    labels: sorted.slice(0, 5).map(i => i[0]),
+                    datasets: [{
+                        data: sorted.slice(0, 5).map(i => i[1]),
+                        backgroundColor: '#f97316',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const listContainer = document.getElementById('keywordPercentageList');
+            listContainer.innerHTML = sorted.map(([kw, count]) => {
+                const perc = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                return `
+                    <div class="animate-fade p-2 hover:bg-slate-50 rounded-xl">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold text-slate-700 truncate">${kw}</span>
+                            <span class="text-[9px] font-black text-blue-600">${perc}%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-1">
+                            <div class="bg-blue-500 h-1 rounded-full" style="width: ${perc}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

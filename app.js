@@ -1252,7 +1252,7 @@ async function exportarRelatorio() {
         windowHeight: Math.ceil(wrapper.getBoundingClientRect().height)
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all'] }
+      pagebreak: { mode: ['avoid-all'], before: [] }
     };
 
     await html2pdf().set(opt).from(wrapper).save();

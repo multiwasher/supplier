@@ -1,1277 +1,283 @@
 <!DOCTYPE html>
 <html lang="pt-pt">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard AppSheet - Avançado</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #f1f5f9; min-height: 100vh; }
-        .chart-container { position: relative; height: 280px; width: 100%; }
-        .animate-fade { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .spinner-rotate { animation: spin 2s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard AppSheet - Avançado</title>
+
+  <!-- Tailwind (rápido para protótipo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js + datalabels -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+
+  <!-- html2pdf -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
+  <!-- Login -->
+  <div id="loginView" class="flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade mx-4 border border-slate-100">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-lg mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800 tracking-tight">DSQA Login Dinâmico</h2>
+        <p class="text-gray-500 text-sm italic">Entidade como Utilizador</p>
+      </div>
 
-    <!-- Login -->
-    <div id="loginView" class="flex items-center justify-center min-h-screen">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade mx-4 border border-slate-100">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-lg mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-                <h2 class="text-2xl font-bold text-gray-800 tracking-tight">DSQA Login Dinâmico</h2>
-                <p class="text-gray-500 text-sm italic">Entidade como Utilizador</p>
-            </div>
-            <div class="space-y-4">
-                <div class="space-y-1">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Entidade</label>
-                    <input type="text" id="userInput" placeholder="ex: RoqLaser" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Password (Entidade Invertida)</label>
-                    <input type="password" id="passInput" placeholder="••••••••" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                </div>
-                <button onclick="handleLogin()" id="loginBtn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95">
-                    Aceder ao Painel
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Entidade</label>
+          <input type="text" id="userInput" placeholder="ex: RoqLaser"
+            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Password (Entidade invertida)</label>
+          <input type="password" id="passInput" placeholder="••••••••"
+            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+        </div>
+
+        <button id="loginBtn"
+          class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95">
+          Aceder ao Painel
+        </button>
+
+        <p id="loginError" class="text-red-500 text-xs text-center hidden font-medium p-2 bg-red-50 rounded-lg"></p>
+      </div>
+
+      <div class="mt-8 text-center border-t border-slate-50 pt-6">
+        <p class="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Somengil Quality Assurance</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="mainView" class="hidden w-full max-w-[1600px] mx-auto p-4 md:p-8 animate-fade">
+    <!-- Loading -->
+    <div id="loadingSpinner" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center rounded-3xl z-50 hidden">
+      <img src="https://static.wixstatic.com/media/a6967f_95db0dbb18554c0299efd61c7e081848~mv2.png"
+        alt="A carregar..." class="h-20 w-20 spinner-rotate">
+    </div>
+
+    <!-- Header -->
+    <header class="mb-8 bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-3xl shadow-lg border border-slate-700">
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+          <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png"
+            alt="Logo" class="h-12 md:h-14 w-auto filter brightness-110">
+          <div class="hidden md:block">
+            <h1 class="text-3xl font-black text-white tracking-tight">Dashboard de Qualidade</h1>
+            <p class="text-slate-300 text-sm font-medium">Sistema de Análise de Não Conformidades</p>
+          </div>
+          <div class="md:hidden text-center">
+            <h1 class="text-2xl font-black text-white tracking-tight">Dashboard de Qualidade</h1>
+            <p class="text-slate-300 text-xs font-medium">Sistema de Análise de Não Conformidades</p>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
+          <div class="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-xl">
+            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <p id="userWelcome" class="text-slate-200 text-xs md:text-sm font-medium"></p>
+          </div>
+
+          <button id="exportPdfBtn"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span class="hidden md:inline">Exportar PDF</span>
+            <span class="md:hidden">PDF</span>
+          </button>
+
+          <button id="refreshDataBtn"
+            class="bg-green-600 hover:bg-green-700 text-white px-3 md:px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95">
+            <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transition-transform"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Atualizar
+          </button>
+
+          <button id="logoutBtn"
+            class="bg-slate-700 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7" />
+            </svg>
+            Sair
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="mt-6 flex flex-wrap items-center gap-4">
+        <!-- Entidade (apenas Admin) - agora com toggle (abre só ao clicar) -->
+        <div id="entidadeFilterContainer" class="hidden w-full md:w-auto">
+          <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 w-full md:w-auto">
+            <!-- Cabeçalho clicável -->
+            <button id="entidadeToggle" class="w-full flex items-center justify-between text-left">
+              <span class="text-[9px] font-black text-slate-400 uppercase ml-1">Entidade</span>
+              <svg id="entidadeChevron" xmlns="http://www.w3.org/2000/svg"
+                class="w-4 h-4 text-slate-400 transition-transform"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <!-- Conteúdo (começa fechado) -->
+            <div id="entidadeContent" class="hidden mt-3">
+              <div class="max-h-40 overflow-y-auto custom-scrollbar pr-2" id="entidadeCheckboxes"></div>
+
+              <div class="flex gap-2 mt-3">
+                <button id="entSelectAll"
+                  class="px-3 py-1 rounded-xl text-[10px] font-black bg-slate-700 text-white hover:bg-slate-600 transition">
+                  Selecionar todas
                 </button>
-                <p id="loginError" class="text-red-500 text-xs text-center hidden font-medium p-2 bg-red-50 rounded-lg"></p>
+                <button id="entClearAll"
+                  class="px-3 py-1 rounded-xl text-[10px] font-black bg-slate-700 text-white hover:bg-slate-600 transition">
+                  Limpar
+                </button>
+              </div>
             </div>
-            <div class="mt-8 text-center border-t border-slate-50 pt-6">
-                <p class="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Somengil Quality Assurance</p>
-            </div>
+          </div>
         </div>
+
+        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+          <label class="text-[9px] font-black text-slate-400 uppercase mb-2 ml-1 block">Anos</label>
+          <div id="yearCheckboxes" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+          <label class="text-[9px] font-black text-slate-400 uppercase mb-2 ml-1 block">Meses</label>
+          <div id="monthCheckboxes" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Registos</p>
+        <h3 id="kpiTotal" class="text-3xl font-black text-slate-800">-</h3>
+      </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Entidades Ativas</p>
+        <h3 id="kpiEntidades" class="text-3xl font-black text-blue-600">-</h3>
+      </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">RNCs em Aberto</p>
+        <h3 id="kpiAberto" class="text-3xl font-black text-red-500">-</h3>
+      </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Taxa de Resolução</p>
+        <h3 id="kpiTaxa" class="text-3xl font-black text-green-600">-</h3>
+      </div>
     </div>
 
-    <!-- Dashboard -->
-    <div id="mainView" class="hidden w-full max-w-[1600px] mx-auto p-4 md:p-8 animate-fade">
-        <!-- Loading Spinner -->
-        <div id="loadingSpinner" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center rounded-3xl z-50">
-            <img src="https://static.wixstatic.com/media/a6967f_95db0dbb18554c0299efd61c7e081848~mv2.png" alt="Carregando..." class="h-20 w-20 spinner-rotate">
-        </div>
-        <!-- Header -->
-        <header class="mb-8 bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-3xl shadow-lg border border-slate-700">
-            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                <div class="flex flex-col md:flex-row md:items-center gap-4">
-                    <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" alt="Logo" class="h-12 md:h-14 w-auto filter brightness-110">
-                    <div class="md:hidden text-center md:text-left">
-                        <h1 class="text-2xl md:text-3xl font-black text-white tracking-tight">Dashboard de Qualidade</h1>
-                        <p class="text-slate-300 text-xs md:text-sm font-medium">Sistema de Análise de Não Conformidades</p>
-                    </div>
-                    <div class="hidden md:block">
-                        <h1 class="text-3xl font-black text-white tracking-tight">Dashboard de Qualidade</h1>
-                        <p class="text-slate-300 text-sm font-medium">Sistema de Análise de Não Conformidades</p>
-                    </div>
-                </div>
-                
-                <div class="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
-                    <div class="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-xl">
-                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        <p id="userWelcome" class="text-slate-200 text-xs md:text-sm font-medium"></p>
-                    </div>
-                    <button onclick="exportarRelatorio()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center md:justify-start gap-2 transition-all shadow-lg active:scale-95">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        <span class="hidden md:inline">Exportar PDF</span>
-                        <span class="md:hidden">PDF</span>
-                    </button>
-                    <button id="refreshDataBtn" onclick="refreshData()" class="bg-green-600 hover:bg-green-700 text-white px-3 md:px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center md:justify-start gap-2 transition-all shadow-lg active:scale-95">
-                        <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        <span class="md:inline">Atualizar</span>
-                    </button>
-                    <button onclick="location.reload()" class="bg-slate-700 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center md:justify-start gap-2 transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7" /></svg>
-                        <span class="md:inline">Sair</span>
-                    </button>
-                </div>
-            </div>
+    <!-- Row 1 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+      <div class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-blue-500 rounded-full"></span> Tendência Mensal
+        </h3>
+        <div class="chart-container"><canvas id="lineTrendChart"></canvas></div>
+      </div>
 
-            <!-- Filtros em destaque -->
-            <div class="mt-6 flex flex-wrap items-center gap-4">
-                <div id="entidadeFilterContainer" class="bg-slate-800 p-3 rounded-xl border border-slate-700 hidden">
-                    <label class="text-[9px] font-black text-slate-400 uppercase mb-2 ml-1 block">Entidade</label>
-                    <select id="entidadeDropdown" class="px-4 py-2 bg-slate-700 border border-slate-600 rounded-xl text-[11px] font-black text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                        <option value="">Todas</option>
-                    </select>
-                </div>
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
-                    <label class="text-[9px] font-black text-slate-400 uppercase mb-2 ml-1 block">Anos</label>
-                    <div id="yearCheckboxes" class="flex flex-wrap gap-2"></div>
-                </div>
-                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
-                    <label class="text-[9px] font-black text-slate-400 uppercase mb-2 ml-1 block">Meses</label>
-                    <div id="monthCheckboxes" class="flex flex-wrap gap-2"></div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Top KPIs -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Registos</p>
-                <h3 id="kpiTotal" class="text-3xl font-black text-slate-800">-</h3>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Entidades Ativas</p>
-                <h3 id="kpiEntidades" class="text-3xl font-black text-blue-600">-</h3>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">RNCs em Aberto</p>
-                <h3 id="kpiAberto" class="text-3xl font-black text-red-500">-</h3>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Taxa de Resolução</p>
-                <h3 id="kpiTaxa" class="text-3xl font-black text-green-600">-</h3>
-            </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-purple-500 rounded-full"></span> Status Geral RNCs
+        </h3>
+        <div class="chart-container flex items-center justify-center">
+          <canvas id="rncPieChart"></canvas>
         </div>
-
-        <!-- Charts Row 1 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            <div class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span> Tendência Mensal
-                </h3>
-                <div class="chart-container"><canvas id="lineTrendChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-purple-500 rounded-full"></span> Status Geral RNCs
-                </h3>
-                <div class="chart-container flex items-center justify-center">
-                    <canvas id="rncPieChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Row 2 -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Total RNCs por Ano
-                </h3>
-                <div class="chart-container"><canvas id="yearComparisonChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-orange-500 rounded-full"></span> Top 5 Keywords
-                </h3>
-                <div class="chart-container"><canvas id="topKeywordsChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-green-500 rounded-full"></span> Top Keyword por Ano
-                </h3>
-                <div id="topKeywordByYearContainer" class="space-y-3">
-                    <!-- JS -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Row 3 -->
-        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
-            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <span class="w-2 h-2 bg-slate-400 rounded-full"></span> Distribuição Completa de Keywords (%)
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-4 max-h-64 overflow-y-auto custom-scrollbar pr-4" id="keywordPercentageList">
-                <!-- JS -->
-            </div>
-        </div>
-
-        <!-- Row 4: Análise de Tempo Previsto de Resolução -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-teal-500 rounded-full"></span> Tempo Previsto de Resolução
-                </h3>
-                <div class="chart-container"><canvas id="tempoResolucaoChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-cyan-500 rounded-full"></span> Estatísticas de Resolução
-                </h3>
-                <div class="grid grid-cols-2 gap-4" id="tempoResolucaoStats">
-                    <div class="bg-slate-50 p-4 rounded-xl">
-                        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Médio (min)</p>
-                        <p class="text-2xl font-black text-teal-600" id="tempoMedio">-</p>
-                    </div>
-                    <div class="bg-slate-50 p-4 rounded-xl">
-                        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Máximo (min)</p>
-                        <p class="text-2xl font-black text-orange-600" id="tempoMaximo">-</p>
-                    </div>
-                    <div class="bg-slate-50 p-4 rounded-xl">
-                        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Mínimo (min)</p>
-                        <p class="text-2xl font-black text-green-600" id="tempoMinimo">-</p>
-                    </div>
-                    <div class="bg-slate-50 p-4 rounded-xl">
-                        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Desvio Padrão</p>
-                        <p class="text-2xl font-black text-blue-600" id="tempoDesvio">-</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Logo Footer -->
-        <div class="flex justify-end mb-8">
-            <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" alt="Logo Footer" class="h-10 w-auto opacity-70 hover:opacity-100 transition-opacity">
-        </div>
+      </div>
     </div>
 
-    <script>
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW2cLgNV4gKUBNUkdkF7Jet29Bxr54EOWmqGDGzZxPH3BVHSAYjn0vY-uTBsLC0N4i/exec';
-        
-        // Mapa de nomes de meses em português para números
-        const mesNomes = {
-            'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
-            'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
-            'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12
-        };
-        
-        const mesNumerosParaNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-        
-        // Registar plugin de data labels
-        Chart.register(ChartDataLabels);
-        
-        let sessionInfo = null;
-        let allData = [];
-        let selectedYears = [];
-        let selectedMonths = [];
-        let selectedEntidades = [];
-        let charts = {};
-        let rncCativacaoGlobal = [];  // Armazenar dados de RNC_cativação
-
-        function handleLogin() {
-            const user = document.getElementById('userInput').value.trim();
-            const pass = document.getElementById('passInput').value.trim();
-            const btn = document.getElementById('loginBtn');
-            const err = document.getElementById('loginError');
-
-            if (!user || !pass) {
-                showLoginError("Preencha todos os campos.");
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerText = "A validar...";
-
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run
-                    .withSuccessHandler(res => {
-                        if (res && res.success) {
-                            sessionInfo = res;
-                            startDashboard();
-                        } else {
-                            showLoginError(res?.message || "Erro de autenticação");
-                        }
-                    })
-                    .withFailureHandler(error => {
-                        showLoginError("Erro: " + error);
-                    })
-                    .checkLogin(user, pass);
-            } else {
-                // Usar URL publicado do Apps Script
-                fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'checkLogin', user, pass })
-                })
-                .then(res => res.json())
-                .then(res => {
-                    if (res && res.success) {
-                        sessionInfo = res;
-                        startDashboard();
-                    } else {
-                        showLoginError(res?.message || "Password inválida. Deve ser o nome da entidade invertido.");
-                    }
-                })
-                .catch(error => {
-                    showLoginError("Erro de conexão: " + error.message);
-                });
-            }
-        }
-
-        function showLoginError(msg) {
-            const btn = document.getElementById('loginBtn');
-            const err = document.getElementById('loginError');
-            err.innerText = msg;
-            err.classList.remove('hidden');
-            btn.disabled = false;
-            btn.innerText = "Aceder ao Painel";
-        }
-
-        function startDashboard() {
-            document.getElementById('loginView').classList.add('hidden');
-            document.getElementById('mainView').classList.remove('hidden');
-            document.getElementById('userWelcome').innerText = `Entidade: ${sessionInfo.username}`;
-            
-            // Mostrar filtro de entidades apenas no modo master (administrador)
-            if (sessionInfo.filter === "all") {
-                document.getElementById('entidadeFilterContainer').classList.remove('hidden');
-            }
-            
-            console.log('Session Info:', sessionInfo);
-            fetchData();
-        }
-
-        function fetchData() {
-            // Mostrar loading spinner
-            document.getElementById('loadingSpinner').style.display = 'flex';
-            
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run
-                    .withSuccessHandler(data => {
-                        console.log('Dados recebidos (google.script):', data);
-                        allData = data || [];
-                        initFilters();
-                        updateDashboard();
-                        // Esconder loading spinner
-                        document.getElementById('loadingSpinner').style.display = 'none';
-                    })
-                    .withFailureHandler(error => {
-                        console.error("Erro ao buscar dados (google.script):", error);
-                        allData = [];
-                        initFilters();
-                        // Esconder loading spinner
-                        document.getElementById('loadingSpinner').style.display = 'none';
-                    })
-                    .getSheetData();
-            } else {
-                // Usar URL publicado do Apps Script
-                console.log('Usando URL do Apps Script:', APPS_SCRIPT_URL);
-                fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'getSheetData' })
-                })
-                .then(res => {
-                    console.log('Response status:', res.status);
-                    return res.json();
-                })
-                .then(data => {
-                    console.log('Dados recebidos (fetch):', data);
-                    // Extrair o array de dados do objeto retornado
-                    allData = (data && data.data) ? data.data : [];
-                    rncCativacaoGlobal = (data && data.rnc_cativacao) ? data.rnc_cativacao : [];
-                    console.log('RNC_cativação recebido:', rncCativacaoGlobal.length, 'registos');
-                    initFilters();
-                    updateDashboard();
-                    // Esconder loading spinner
-                    document.getElementById('loadingSpinner').style.display = 'none';
-                })
-                .catch(error => {
-                    console.error("Erro ao buscar dados (fetch):", error);
-                    allData = [];
-                    initFilters();
-                    // Esconder loading spinner
-                    document.getElementById('loadingSpinner').style.display = 'none';
-                });
-            }
-        }
-
-        function refreshData() {
-            // Adicionar animação de rotação ao ícone
-            const icon = document.getElementById('refreshIcon');
-            const btn = document.getElementById('refreshDataBtn');
-            
-            // Desabilitar botão durante a atualização
-            btn.disabled = true;
-            btn.classList.add('opacity-75');
-            
-            // Iniciar rotação do ícone
-            icon.style.animation = 'spin 2s linear infinite';
-            
-            // Forçar nova busca de dados
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'getSheetData' })
-            })
-            .then(res => {
-                console.log('Atualização - Response status:', res.status);
-                return res.json();
-            })
-            .then(data => {
-                console.log('Dados atualizados (refresh):', data);
-                // Extrair o array de dados do objeto retornado
-                allData = (data && data.data) ? data.data : [];
-                rncCativacaoGlobal = (data && data.rnc_cativacao) ? data.rnc_cativacao : [];
-                console.log('Total de registos após atualização:', allData.length);
-                console.log('RNC_cativação após atualização:', rncCativacaoGlobal.length, 'registos');
-                
-                // Atualizar filtros e dashboard
-                initFilters();
-                updateDashboard();
-                
-                // Mostrar mensagem de sucesso
-                alert('Dados atualizados com sucesso! (' + allData.length + ' registos)');
-            })
-            .catch(error => {
-                console.error("Erro ao atualizar dados (refresh):", error);
-                alert('Erro ao atualizar os dados: ' + error.message);
-            })
-            .finally(() => {
-                // Parar animação e reabilitar botão
-                icon.style.animation = 'none';
-                btn.disabled = false;
-                btn.classList.remove('opacity-75');
-            });
-        }
-
-        let isFirstLoad = true;
-
-        function initFilters() {
-            console.log('initFilters - Total registos:', allData.length);
-            console.log('Primeiro registo:', allData[0]);
-            
-            // Gerar anos desde 2022 até o ano atual (2025)
-            const currentYear = new Date().getFullYear();
-            const anosDisponiveis = [];
-            for (let ano = 2022; ano <= currentYear; ano++) {
-                anosDisponiveis.push(ano);
-            }
-            // Ordenar descendente
-            const anos = anosDisponiveis.sort((a, b) => b - a);
-
-            // Todos os 12 meses sempre disponíveis
-            const mesesCompletos = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-            // Extrair entidades únicas
-            const entidades = [...new Set(allData.map(d => d.entidade).filter(Boolean))].sort();
-
-            // Extrair anos reais dos dados (para debug)
-            const anosNosDados = [...new Set(allData.map(d => {
-                const ano = parseInt(d.ano);
-                return isNaN(ano) ? null : ano;
-            }).filter(Boolean))].sort((a, b) => b - a);
-
-            console.log('Anos nos dados:', anosNosDados);
-            console.log('Anos disponíveis para filtros:', anos);
-            console.log('Meses disponíveis:', mesesCompletos);
-            console.log('Entidades encontradas:', entidades);
-
-            // Renderizar dropdown de entidades (apenas se for master)
-            if (sessionInfo.filter === "all") {
-                const dropdown = document.getElementById('entidadeDropdown');
-                dropdown.innerHTML = '<option value="">Todas as Entidades</option>';
-                entidades.forEach(entidade => {
-                    const option = document.createElement('option');
-                    option.value = entidade;
-                    option.innerText = entidade;
-                    dropdown.appendChild(option);
-                });
-                dropdown.onchange = (e) => {
-                    selectedEntidades = e.target.value ? [e.target.value] : [];
-                    updateDashboard();
-                };
-                selectedEntidades = [];
-            }
-
-            // Renderizar filtros de anos
-            const yearContainer = document.getElementById('yearCheckboxes');
-            yearContainer.innerHTML = '';
-            // Apenas inicializar selectedYears na primeira carga
-            if (isFirstLoad) {
-                selectedYears = [...anos];
-                isFirstLoad = false;
-            }
-
-            anos.forEach(ano => {
-                const btn = document.createElement('button');
-                btn.id = `year_${ano}`;
-                btn.innerText = ano;
-                const isSelected = selectedYears.includes(ano);
-                btn.className = isSelected 
-                    ? "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm"
-                    : "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
-                btn.onclick = () => toggleYear(ano);
-                yearContainer.appendChild(btn);
-            });
-
-            // Renderizar filtros de meses
-            const monthContainer = document.getElementById('monthCheckboxes');
-            monthContainer.innerHTML = '';
-            // Apenas inicializar selectedMonths se estiver vazio (primeira carga)
-            if (selectedMonths.length === 0) {
-                selectedMonths = [...mesesCompletos];
-            }
-
-            const mesesNomes = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
-            
-            mesesCompletos.forEach(monthNum => {
-                const btn = document.createElement('button');
-                btn.id = `month_${monthNum}`;
-                btn.innerText = mesesNomes[monthNum - 1];
-                const isSelected = selectedMonths.includes(monthNum);
-                btn.className = isSelected 
-                    ? "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm"
-                    : "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
-                btn.onclick = () => toggleMonth(monthNum);
-                monthContainer.appendChild(btn);
-            });
-        }
-
-        function toggleYear(ano) {
-            ano = Number(ano); // Garantir que é número
-            const btn = document.getElementById(`year_${ano}`);
-            if (selectedYears.includes(ano)) {
-                selectedYears = selectedYears.filter(y => Number(y) !== ano);
-                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
-            } else {
-                selectedYears.push(ano);
-                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm";
-            }
-            updateDashboard();
-        }
-
-        function toggleMonth(monthNum) {
-            const btn = document.getElementById(`month_${monthNum}`);
-            if (selectedMonths.includes(monthNum)) {
-                selectedMonths = selectedMonths.filter(m => m !== monthNum);
-                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
-            } else {
-                selectedMonths.push(monthNum);
-                btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm";
-            }
-            updateDashboard();
-        }
-
-        function updateDashboard() {
-            console.log('🔄 updateDashboard chamado...');
-            console.log('  selectedYears:', selectedYears);
-            console.log('  selectedMonths:', selectedMonths);
-            console.log('  selectedEntidades:', selectedEntidades);
-            
-            const filtered = allData.filter(d => {
-                const ano = parseInt(d.ano);
-                const mesNome = d.mês ? d.mês.toString().toLowerCase().trim() : '';
-                const mes = mesNomes[mesNome] || null;
-                
-                // Verificar filtro de anos: se selectedYears está vazio, aceitar todos
-                const passaFiltroAno = selectedYears.length === 0 || selectedYears.includes(ano);
-                
-                // Verificar filtro de meses: se selectedMonths está vazio, aceitar todos
-                const passaFiltroMes = selectedMonths.length === 0 || selectedMonths.includes(mes);
-                
-                const passaFiltroTempo = passaFiltroAno && passaFiltroMes;
-                
-                // Verificar filtro de entidade (case-insensitive)
-                const entidadeAtual = d.entidade ? d.entidade.toString().toLowerCase().trim() : '';
-                const passaFiltroEntidade = selectedEntidades.length === 0 || 
-                    selectedEntidades.some(ent => ent.toLowerCase().trim() === entidadeAtual);
-                
-                return passaFiltroTempo && passaFiltroEntidade;
-            });
-
-            console.log('✓ Registos após filtros:', filtered.length, 'de', allData.length);
-
-            // KPIs
-            const abertas = filtered.filter(d => d.status?.toLowerCase() === 'aberto').length;
-            const fechadas = filtered.filter(d => d.status?.toLowerCase() === 'fechado').length;
-            const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
-
-            document.getElementById('kpiTotal').innerText = filtered.length;
-            document.getElementById('kpiEntidades').innerText = [...new Set(filtered.map(d => d.entidade).filter(Boolean))].length;
-            document.getElementById('kpiAberto').innerText = abertas;
-            document.getElementById('kpiTaxa').innerText = taxa + '%';
-
-            console.log('📊 Renderizando gráficos...');
-            renderTrendChart(filtered);
-            renderYearComparisonChart(filtered);
-            renderPieChart(abertas, fechadas);
-            renderKeywordCharts(filtered);
-            renderTopKeywordByYear(filtered);
-            renderTempoResolucaoChart(filtered);
-            console.log('✓ Todos os gráficos atualizados');
-        }
-
-        function renderTrendChart(data) {
-            // Agrupar dados por ano e mês
-            const trendByYearMonth = {};
-            
-            data.forEach(d => {
-                const ano = parseInt(d.ano);
-                const mesNome = d.mês ? d.mês.toString().toLowerCase().trim() : '';
-                const mes = mesNomes[mesNome] || null;
-                
-                if (ano && mes) {
-                    if (!trendByYearMonth[ano]) {
-                        trendByYearMonth[ano] = {};
-                    }
-                    trendByYearMonth[ano][mes] = (trendByYearMonth[ano][mes] || 0) + 1;
-                }
-            });
-
-            // Cores para cada ano
-            const cores = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
-            const mesesNomes = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
-            
-            // Criar datasets para cada ano
-            const datasets = [];
-            Object.keys(trendByYearMonth).sort().reverse().forEach((ano, index) => {
-                const yearData = trendByYearMonth[ano];
-                const dataPoints = [];
-                for (let mes = 1; mes <= 12; mes++) {
-                    dataPoints.push(yearData[mes] || 0);
-                }
-                
-                datasets.push({
-                    label: `${ano}`,
-                    data: dataPoints,
-                    borderColor: cores[index % cores.length],
-                    backgroundColor: cores[index % cores.length].replace(')', ', 0.05)').replace('rgb', 'rgba'),
-                    fill: false,
-                    tension: 0.4,
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#fff'
-                });
-            });
-
-            if (charts.trend) charts.trend.destroy();
-            charts.trend = new Chart(document.getElementById('lineTrendChart'), {
-                type: 'line',
-                data: {
-                    labels: mesesNomes,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: true, position: 'top' }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, grid: { borderDash: [5, 5] }, ticks: { stepSize: 1 } },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
-        }
-
-        function renderYearComparisonChart(data) {
-            const yearCounts = selectedYears.sort().reduce((acc, ano) => {
-                acc[ano] = data.filter(d => parseInt(d.ano) === ano).length;
-                return acc;
-            }, {});
-
-            if (charts.yearBar) charts.yearBar.destroy();
-            charts.yearBar = new Chart(document.getElementById('yearComparisonChart'), {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(yearCounts),
-                    datasets: [{
-                        data: Object.values(yearCounts),
-                        backgroundColor: '#6366f1',
-                        borderRadius: 12,
-                        barThickness: 30
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
-                }
-            });
-        }
-
-        function renderPieChart(aberto, fechado) {
-            if (charts.pie) charts.pie.destroy();
-            charts.pie = new Chart(document.getElementById('rncPieChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Aberto', 'Fechado'],
-                    datasets: [{
-                        data: [aberto, fechado],
-                        backgroundColor: ['#ef4444', '#22c55e'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '75%',
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        datalabels: {
-                            color: '#000',
-                            font: { weight: 'bold', size: 14 },
-                            formatter: (value, ctx) => {
-                                return value;
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function renderKeywordCharts(data) {
-            console.log('renderKeywordCharts - Registos recebidos:', data.length);
-            
-            // Verificar se há dados
-            if (!data || data.length === 0) {
-                console.log('renderKeywordCharts - Sem dados para processar');
-                const listContainer = document.getElementById('keywordPercentageList');
-                listContainer.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados de Keywords</p>';
-                
-                if (charts.bar) charts.bar.destroy();
-                const ctx = document.getElementById('topKeywordsChart');
-                if (ctx && ctx.parentElement) {
-                    ctx.parentElement.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados</p>';
-                }
-                return;
-            }
-            
-            // Inspecionar os campos disponíveis no primeiro registo
-            if (data.length > 0) {
-                console.log('Primeiro registo (debug):', data[0]);
-                console.log('Campos disponíveis:', Object.keys(data[0]));
-            }
-            
-            // Procurar por campo "keyword" com possíveis variações
-            let keywordField = null;
-            const possibleFields = ['keyword', 'KEYWORD', 'Keyword', 'keywords', 'KEYWORDS', 'Keywords'];
-            
-            for (let field of possibleFields) {
-                if (data[0] && field in data[0]) {
-                    keywordField = field;
-                    console.log('Campo de keyword encontrado:', keywordField);
-                    break;
-                }
-            }
-            
-            // Se ainda não encontrou, procurar qualquer campo que contenha "keyword"
-            if (!keywordField && data[0]) {
-                const fields = Object.keys(data[0]);
-                keywordField = fields.find(f => f.toLowerCase().includes('keyword'));
-                console.log('Campo encontrado por busca (contém "keyword"):', keywordField);
-            }
-            
-            if (!keywordField) {
-                console.warn('Nenhum campo "keyword" encontrado nos dados!');
-                const listContainer = document.getElementById('keywordPercentageList');
-                listContainer.innerHTML = '<p class="text-orange-400 text-sm text-center py-8">Campo "keyword" não encontrado nos dados</p>';
-                return;
-            }
-            
-            // Usar o campo "keyword" encontrado
-            const counts = data.reduce((acc, curr) => {
-                const keyword = curr[keywordField];
-                if (keyword) {
-                    acc[keyword] = (acc[keyword] || 0) + 1;
-                }
-                return acc;
-            }, {});
-
-            console.log('renderKeywordCharts - Keywords encontrados:', Object.keys(counts).length);
-            
-            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            const total = data.length;
-
-            if (charts.bar) charts.bar.destroy();
-            charts.bar = new Chart(document.getElementById('topKeywordsChart'), {
-                type: 'bar',
-                data: {
-                    labels: sorted.slice(0, 5).map(i => i[0]),
-                    datasets: [{
-                        data: sorted.slice(0, 5).map(i => i[1]),
-                        backgroundColor: '#f97316',
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
-
-            const listContainer = document.getElementById('keywordPercentageList');
-            listContainer.innerHTML = sorted.map(([kw, count]) => {
-                const perc = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                return `
-                    <div class="animate-fade p-2 hover:bg-slate-50 rounded-xl">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-[10px] font-bold text-slate-700 truncate">${kw}</span>
-                            <span class="text-[9px] font-black text-blue-600">${perc}%</span>
-                        </div>
-                        <div class="w-full bg-slate-100 rounded-full h-1">
-                            <div class="bg-blue-500 h-1 rounded-full" style="width: ${perc}%"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function renderTopKeywordByYear(data) {
-            console.log('renderTopKeywordByYear - Registos recebidos:', data.length);
-            
-            if (!data || data.length === 0) {
-                const container = document.getElementById('topKeywordByYearContainer');
-                container.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados</p>';
-                return;
-            }
-
-            // Procurar pelo campo de keyword (similar ao renderKeywordCharts)
-            let keywordField = null;
-            const possibleFields = ['keyword', 'KEYWORD', 'Keyword', 'keywords', 'KEYWORDS', 'Keywords'];
-            
-            for (let field of possibleFields) {
-                if (data[0] && field in data[0]) {
-                    keywordField = field;
-                    break;
-                }
-            }
-            
-            if (!keywordField && data[0]) {
-                const fields = Object.keys(data[0]);
-                keywordField = fields.find(f => f.toLowerCase().includes('keyword'));
-            }
-            
-            if (!keywordField) {
-                const container = document.getElementById('topKeywordByYearContainer');
-                container.innerHTML = '<p class="text-orange-400 text-sm text-center py-8">Campo "keyword" não encontrado</p>';
-                return;
-            }
-
-            // Agrupar keywords por ano
-            const keywordsByYear = {};
-            
-            data.forEach(d => {
-                const ano = parseInt(d.ano);
-                const keyword = d[keywordField];
-                
-                if (ano && keyword) {
-                    if (!keywordsByYear[ano]) {
-                        keywordsByYear[ano] = {};
-                    }
-                    keywordsByYear[ano][keyword] = (keywordsByYear[ano][keyword] || 0) + 1;
-                }
-            });
-
-            // Encontrar o top keyword para cada ano
-            const topByYear = [];
-            Object.keys(keywordsByYear).sort((a, b) => b - a).forEach(ano => {
-                const keywords = keywordsByYear[ano];
-                const sorted = Object.entries(keywords).sort((a, b) => b[1] - a[1]);
-                if (sorted.length > 0) {
-                    topByYear.push({
-                        ano: ano,
-                        keyword: sorted[0][0],
-                        count: sorted[0][1]
-                    });
-                }
-            });
-
-            console.log('Top keyword por ano:', topByYear);
-
-            // Renderizar
-            const container = document.getElementById('topKeywordByYearContainer');
-            if (topByYear.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem keywords para exibir</p>';
-                return;
-            }
-
-            container.innerHTML = topByYear.map(item => {
-                return `
-                    <div class="animate-fade p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-green-300 transition-all">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <p class="text-[11px] font-bold text-slate-400 uppercase mb-1">Ano ${item.ano}</p>
-                                <p class="text-lg font-black text-slate-800">${item.keyword}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-2xl font-black text-green-600">${item.count}</p>
-                                <p class="text-[9px] text-slate-400 font-bold">registos</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function renderTempoResolucaoChart(data) {
-            console.log('renderTempoResolucaoChart - Registos recebidos:', data.length);
-            
-            // Buscar dados de RNC_cativação (se disponíveis na resposta global)
-            let rncCativacaoData = rncCativacaoGlobal || [];
-            console.log('RNC_cativação disponível:', rncCativacaoData.length, 'registos');
-            
-            // Debug: mostrar que anos existem em RNC_cativação
-            const anosEmRNC = [...new Set(rncCativacaoData.map(d => d.ano).filter(Boolean))].sort((a,b) => b-a);
-            console.log('Anos em RNC_cativação:', anosEmRNC);
-            
-            // Filtrar dados de RNC_cativação por Entidade e Ano selecionados
-            const temposFiltered = rncCativacaoData.filter(d => {
-                // Filtrar por Entidade
-                const entidadeAtual = d.entidade ? d.entidade.toString().toLowerCase().trim() : '';
-                const passaFiltroEntidade = selectedEntidades.length === 0 || 
-                    selectedEntidades.some(ent => ent.toLowerCase().trim() === entidadeAtual);
-                
-                // Filtrar por Ano (garantir comparação de números)
-                const ano = Number(d.ano);
-                const passaFiltroAno = selectedYears.length === 0 || selectedYears.some(y => Number(y) === ano);
-                
-                return passaFiltroEntidade && passaFiltroAno;
-            });
-            
-            console.log('RNC_cativação após filtros:', temposFiltered.length, 'registos');
-            console.log('Filtros aplicados - Entidades:', selectedEntidades, 'Anos:', selectedYears);
-            
-            // Extrair valores de tempo_resolucao_min
-            const tempos = temposFiltered
-                .map(d => Number(d.tempo_resolucao_min))
-                .filter(t => Number.isFinite(t) && t >= 0);
-
-            console.log('Tempos extraídos:', tempos.length, 'de', temposFiltered.length);
-            
-            // Se não há dados, mostrar mensagem de "sem dados" SEM tentar renderizar gráfico
-            if (tempos.length === 0) {
-                console.warn('Nenhum tempo válido encontrado.');
-                
-                // Atualizar KPIs com dashes
-                const tempoMedioEl = document.getElementById('tempoMedio');
-                const tempoMaximoEl = document.getElementById('tempoMaximo');
-                const tempoMinimoEl = document.getElementById('tempoMinimo');
-                const tempoDesvioEl = document.getElementById('tempoDesvio');
-                const ctxElement = document.getElementById('tempoResolucaoChart');
-                
-                if (tempoMedioEl) tempoMedioEl.innerText = '-';
-                if (tempoMaximoEl) tempoMaximoEl.innerText = '-';
-                if (tempoMinimoEl) tempoMinimoEl.innerText = '-';
-                if (tempoDesvioEl) tempoDesvioEl.innerText = '-';
-                
-                if (charts.tempoResolucao) {
-                    charts.tempoResolucao.destroy();
-                    charts.tempoResolucao = null;
-                }
-                
-                if (ctxElement && ctxElement.parentElement) {
-                    ctxElement.parentElement.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados de Tempo Previsto de Resolução para os filtros selecionados</p>';
-                }
-                return;  // ← RETORNA AQUI, SEM CHAMAR tryRender()
-            }
-            
-            // Só agora chamamos retry, sabendo que temos dados
-            function tryRender(attempts = 0) {
-                const maxAttempts = 10;
-                // Delays muito mais curtos: 10ms, 15ms, 20ms, 25ms, 30ms, 40ms, 50ms, 60ms, 70ms, 80ms
-                const delays = [10, 15, 20, 25, 30, 40, 50, 60, 70, 80];
-                const delayMs = delays[Math.min(attempts, delays.length - 1)];
-                
-                function checkElements() {
-                    return {
-                        tempoMedioEl: document.getElementById('tempoMedio'),
-                        tempoMaximoEl: document.getElementById('tempoMaximo'),
-                        tempoMinimoEl: document.getElementById('tempoMinimo'),
-                        tempoDesvioEl: document.getElementById('tempoDesvio'),
-                        ctxElement: document.getElementById('tempoResolucaoChart')
-                    };
-                }
-                
-                function hasAllElements(els) {
-                    return els.tempoMedioEl && els.tempoMaximoEl && els.tempoMinimoEl && 
-                           els.tempoDesvioEl && els.ctxElement;
-                }
-                
-                const els = checkElements();
-                
-                if (!hasAllElements(els)) {
-                    if (attempts < maxAttempts) {
-                        console.log(`Retry ${attempts + 1}/${maxAttempts}: aguardando ${delayMs}ms...`);
-                        setTimeout(() => tryRender(attempts + 1), delayMs);
-                    } else {
-                        console.warn(`❌ Elementos HTML não encontrados após ${maxAttempts} tentativas (última delay: ${delayMs}ms)`);
-                    }
-                    return;
-                }
-                
-                // Elementos encontrados, renderizar
-                proceedWithChart(els);
-            }
-            
-            tryRender();
-            
-            function proceedWithChart(els) {
-                const tempoMedioEl = els.tempoMedioEl;
-                const tempoMaximoEl = els.tempoMaximoEl;
-                const tempoMinimoEl = els.tempoMinimoEl;
-                const tempoDesvioEl = els.tempoDesvioEl;
-                const ctxElement = els.ctxElement;
-
-            // Calcular estatísticas (valores em MINUTOS)
-            const media = tempos.reduce((a, b) => a + b, 0) / tempos.length;
-            const maximo = Math.max(...tempos);
-            const minimo = Math.min(...tempos);
-            const variancia = tempos.reduce((sum, t) => sum + Math.pow(t - media, 2), 0) / tempos.length;
-            const desvio = Math.sqrt(variancia);
-
-            console.log('Estatísticas de Tempo Previsto (em MINUTOS):');
-            console.log('  Média:', Math.round(media), 'minutos');
-            console.log('  Máximo:', maximo, 'minutos');
-            console.log('  Mínimo:', minimo, 'minutos');
-            console.log('  Desvio Padrão:', desvio.toFixed(1), 'minutos');
-
-            // Atualizar KPIs com tratamento seguro
-            try {
-                tempoMedioEl.innerText = Math.round(media);
-                tempoMaximoEl.innerText = maximo;
-                tempoMinimoEl.innerText = minimo;
-                tempoDesvioEl.innerText = desvio.toFixed(1);
-                console.log('✓ KPIs de Tempo Previsto atualizados com sucesso');
-            } catch (e) {
-                console.error('Erro ao atualizar KPIs de tempo:', e);
-            }
-
-            // Criar histograma com bins de 10 MINUTOS
-            const binSize = 10;
-            const maxBin = Math.ceil(maximo / binSize) * binSize;
-            const bins = {};
-            
-            for (let i = 0; i <= maxBin; i += binSize) {
-                const range = `${i}-${i + binSize}min`;
-                bins[range] = 0;
-            }
-
-            tempos.forEach(tempo => {
-                const bin = Math.floor(tempo / binSize) * binSize;
-                const range = `${bin}-${bin + binSize}min`;
-                bins[range] = (bins[range] || 0) + 1;
-            });
-
-            console.log('Histograma criado com', Object.keys(bins).length, 'bins');
-
-            try {
-                // Destruir gráfico anterior se existir
-                if (charts.tempoResolucao) {
-                    charts.tempoResolucao.destroy();
-                    charts.tempoResolucao = null;
-                }
-                
-                // Validar elemento canvas
-                if (!ctxElement) {
-                    console.error('Canvas element #tempoResolucaoChart não encontrado!');
-                    return;
-                }
-
-                // Criar novo gráfico
-                charts.tempoResolucao = new Chart(ctxElement, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(bins),
-                        datasets: [{
-                            label: 'Quantidade de RNCs',
-                            data: Object.values(bins),
-                            backgroundColor: '#14b8a6',
-                            borderRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { display: true, position: 'top' },
-                            tooltip: { enabled: true }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                            x: { title: { display: true, text: 'Tempo Previsto de Resolução (minutos)' } }
-                        }
-                    }
-                });
-                
-                console.log('✓ Gráfico de Tempo Previsto atualizado com sucesso');
-            } catch (error) {
-                console.error('Erro ao criar gráfico de Tempo Previsto:', error);
-                if (ctxElement && ctxElement.parentElement) {
-                    ctxElement.parentElement.innerHTML = '<p class="text-red-400 text-sm text-center py-8">Erro ao gerar gráfico: ' + error.message + '</p>';
-                }
-            }
-            } // Fechar proceedWithChart
-        }
-
-        function exportarRelatorio() {
-            // Preparar dados filtrados
-            const filtered = allData.filter(d => {
-                const ano = parseInt(d.ano);
-                const mesNome = d.mês ? d.mês.toString().toLowerCase().trim() : '';
-                const mes = mesNomes[mesNome] || null;
-                
-                const passaFiltroTempo = selectedYears.includes(ano) && selectedMonths.includes(mes);
-                const entidadeAtual = d.entidade ? d.entidade.toString().toLowerCase().trim() : '';
-                const passaFiltroEntidade = selectedEntidades.length === 0 || 
-                    selectedEntidades.some(ent => ent.toLowerCase().trim() === entidadeAtual);
-                
-                return passaFiltroTempo && passaFiltroEntidade;
-            });
-
-            // Aguardar que os gráficos estejam completamente renderizados
-            setTimeout(() => {
-                // Preparar dados para o relatório
-                const mesesNomes = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
-                const anosTexto = selectedYears.join(', ');
-                const mesesTexto = selectedMonths.map(m => mesesNomes[m - 1]).join(', ');
-                const entidadeTexto = selectedEntidades.length > 0 ? selectedEntidades.join(', ') : 'Todas';
-                const periodoTexto = `${mesesTexto} (${anosTexto})`;
-                
-                const abertas = filtered.filter(d => d.status?.toLowerCase() === 'aberto').length;
-                const fechadas = filtered.filter(d => d.status?.toLowerCase() === 'fechado').length;
-                const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
-                const entidadesUnicas = [...new Set(filtered.map(d => d.entidade).filter(Boolean))].length;
-
-                // Capturar imagens dos gráficos
-                const trendChartImg = document.getElementById('lineTrendChart').toDataURL('image/png');
-                const yearChartImg = document.getElementById('yearComparisonChart').toDataURL('image/png');
-                const pieChartImg = document.getElementById('rncPieChart').toDataURL('image/png');
-                const topKeywordsImg = document.getElementById('topKeywordsChart').toDataURL('image/png');
-                let tempoResolucaoImg = '';
-                try {
-                    tempoResolucaoImg = document.getElementById('tempoResolucaoChart').toDataURL('image/png');
-                } catch (e) {
-                    console.log('Gráfico de tempo de resolução ainda não disponível');
-                }
-                
-                // Capturar gráficos de keywords adicionais se existirem
-                let keywordDistImg = '';
-                const keywordDistCharts = document.querySelectorAll('[id^="keywordChart"]');
-                if (keywordDistCharts.length > 0) {
-                    keywordDistImg = keywordDistCharts[0].toDataURL('image/png');
-                }
-
-            const conteudo = `
-                <div style="font-family: Arial, sans-serif; background: white; color: #1e293b;">
-                    <!-- PÁGINA 1 -->
-                    <div style="padding: 12px; min-height: 297mm; display: flex; flex-direction: column;">
-                        
-                        <!-- Logo e Título -->
-                        <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 3px solid #1e293b;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height: 32px;">
-                            </div>
-                            <h1 style="color: #1e293b; margin: 0; font-size: 20px; font-weight: bold;">Dashboard de Qualidade</h1>
-                            <p style="color: #64748b; margin: 2px 0 0 0; font-size: 11px;">Sistema de Análise de Não Conformidades</p>
-                        </div>
-
-                        <!-- Infos: Entidade e Período -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; font-size: 10px;">
-                            <div style="background: #f1f5f9; padding: 8px; border-radius: 4px; border-left: 3px solid #3b82f6;">
-                                <p style="color: #64748b; margin: 0; font-weight: bold; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Entidad</p>
-                                <p style="color: #1e293b; margin: 3px 0 0 0; font-weight: bold; font-size: 11px;">${entidadeTexto}</p>
-                            </div>
-                            <div style="background: #f1f5f9; padding: 8px; border-radius: 4px; border-left: 3px solid #8b5cf6;">
-                                <p style="color: #64748b; margin: 0; font-weight: bold; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Período de Análise</p>
-                                <p style="color: #1e293b; margin: 3px 0 0 0; font-weight: bold; font-size: 9px; line-height: 1.3;">${periodoTexto}</p>
-                            </div>
-                        </div>
-
-                        <!-- KPIs -->
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center;">
-                                <p style="margin: 0; font-size: 8px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">Total Registos</p>
-                                <p style="margin: 4px 0 0 0; font-size: 24px; font-weight: bold; color: #1e293b;">${filtered.length}</p>
-                            </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center;">
-                                <p style="margin: 0; font-size: 8px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">Entidades Ativas</p>
-                                <p style="margin: 4px 0 0 0; font-size: 24px; font-weight: bold; color: #2563eb;">${entidadesUnicas}</p>
-                            </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center;">
-                                <p style="margin: 0; font-size: 8px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">RNCs em Aberto</p>
-                                <p style="margin: 4px 0 0 0; font-size: 24px; font-weight: bold; color: #ef4444;">${abertas}</p>
-                            </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center;">
-                                <p style="margin: 0; font-size: 8px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">Taxa de Resolução</p>
-                                <p style="margin: 4px 0 0 0; font-size: 24px; font-weight: bold; color: #16a34a;">${taxa}%</p>
-                            </div>
-                        </div>
-
-                        <!-- Row 1: Tendência (2/3) + Status (1/3) -->
-                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px;">
-                                <h3 style="color: #1e293b; font-size: 10px; margin: 0 0 6px 0; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                                    <span style="width: 6px; height: 6px; background: #3b82f6; border-radius: 50%;"></span> Tendência Mensal
-                                </h3>
-                                <img src="${trendChartImg}" style="width: 100%; height: auto; max-height: 130px; object-fit: contain;">
-                            </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px;">
-                                <h3 style="color: #1e293b; font-size: 10px; margin: 0 0 6px 0; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                                    <span style="width: 6px; height: 6px; background: #a855f7; border-radius: 50%;"></span> Status Geral RNCs
-                                </h3>
-                                <img src="${pieChartImg}" style="width: 100%; height: auto; max-height: 130px; object-fit: contain;">
-                            </div>
-                        </div>
-
-                        <!-- Row 2: Total por Ano (1/2) + Top 5 Keywords (1/2) -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px;">
-                                <h3 style="color: #1e293b; font-size: 10px; margin: 0 0 6px 0; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                                    <span style="width: 6px; height: 6px; background: #4f46e5; border-radius: 50%;"></span> Total RNCs por Ano
-                                </h3>
-                                <img src="${yearChartImg}" style="width: 100%; height: auto; max-height: 120px; object-fit: contain;">
-                            </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px;">
-                                <h3 style="color: #1e293b; font-size: 10px; margin: 0 0 6px 0; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                                    <span style="width: 6px; height: 6px; background: #f97316; border-radius: 50%;"></span> Top 5 Keywords
-                                </h3>
-                                <img src="${topKeywordsImg}" style="width: 100%; height: auto; max-height: 120px; object-fit: contain;">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- PÁGINA 2 -->
-                    <div style="padding: 12px; min-height: 297mm; page-break-before: always;">
-                        
-                        <!-- Análise de Tempo Previsto de Resolução -->
-                        ${tempoResolucaoImg ? `
-                        <div style="background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 20px;">
-                            <h3 style="color: #1e293b; font-size: 10px; margin: 0 0 6px 0; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                                <span style="width: 6px; height: 6px; background: #14b8a6; border-radius: 50%;"></span> Tempo Previsto de Resolução (Distribuição)
-                            </h3>
-                            <img src="${tempoResolucaoImg}" style="width: 100%; height: auto; max-height: 200px; object-fit: contain;">
-                        </div>
-                        ` : ''}
-
-                        <!-- Distribuição Completa de Keywords (full width) -->
-                        ${keywordDistImg ? `
-                        <div style="background: white; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; margin-bottom: 20px;">
-                            <h3 style="color: #1e293b; font-size: 10px; margin: 0 0 6px 0; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                                <span style="width: 6px; height: 6px; background: #6b7280; border-radius: 50%;"></span> Distribuição Completa de Keywords (%)
-                            </h3>
-                            <img src="${keywordDistImg}" style="width: 100%; height: auto; max-height: 200px; object-fit: contain;">
-                        </div>
-                        ` : ''}
-
-                        <!-- Logo Footer -->
-                        <div style="margin-top: 30px; text-align: right;">
-                            <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height: 20px; opacity: 0.6;">
-                        </div>
-
-                        <!-- Rodapé -->
-                        <div style="margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 9px;">
-                            <p style="margin: 0;">Somengil - Sistema de Gestão de Qualidade</p>
-                            <p style="margin: 2px 0 0 0;">Relatório gerado em ${new Date().toLocaleDateString('pt-PT', {year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</p>
-                        </div>
-                    </div>
-            `;
-
-                // Configurações do PDF
-                const options = {
-                    margin: [10, 10, 10, 10],
-                    filename: `Dashboard_Qualidade_${new Date().toISOString().split('T')[0]}.pdf`,
-                    image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-                };
-
-                // Gerar e fazer download do PDF
-                html2pdf().set(options).from(conteudo).save();
-            }, 500);
-        }
-    </script>
+    <!-- Row 2 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Total RNCs por Ano
+        </h3>
+        <div class="chart-container"><canvas id="yearComparisonChart"></canvas></div>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-orange-500 rounded-full"></span> Top 5 Keywords
+        </h3>
+        <div class="chart-container"><canvas id="topKeywordsChart"></canvas></div>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-green-500 rounded-full"></span> Top Keyword por Ano
+        </h3>
+        <div id="topKeywordByYearContainer" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- Row 3 -->
+    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
+      <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+        <span class="w-2 h-2 bg-slate-400 rounded-full"></span> Distribuição Completa de Keywords (%)
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-4 max-h-64 overflow-y-auto custom-scrollbar pr-4"
+        id="keywordPercentageList"></div>
+    </div>
+
+    <!-- Row 4: Tempo Previsto -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-teal-500 rounded-full"></span> Tempo Previsto de Resolução
+        </h3>
+        <div class="chart-container"><canvas id="tempoResolucaoChart"></canvas></div>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <span class="w-2 h-2 bg-cyan-500 rounded-full"></span> Estatísticas de Resolução
+        </h3>
+        <div class="grid grid-cols-2 gap-4" id="tempoResolucaoStats">
+          <div class="bg-slate-50 p-4 rounded-xl">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Médio (min)</p>
+            <p class="text-2xl font-black text-teal-600" id="tempoMedio">-</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-xl">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Máximo (min)</p>
+            <p class="text-2xl font-black text-orange-600" id="tempoMaximo">-</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-xl">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Mínimo (min)</p>
+            <p class="text-2xl font-black text-green-600" id="tempoMinimo">-</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-xl">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Desvio Padrão</p>
+            <p class="text-2xl font-black text-blue-600" id="tempoDesvio">-</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex justify-end mb-8">
+      <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png"
+        alt="Logo Footer" class="h-10 w-auto opacity-70 hover:opacity-100 transition-opacity">
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
 </body>
 </html>

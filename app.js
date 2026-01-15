@@ -121,11 +121,6 @@ function waitTwoFrames() {
   return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 
-function mmToPx(mm) {
-  // 96dpi -> px por polegada; 25.4mm por polegada
-  return Math.round(mm * (96 / 25.4));
-}
-
 /* ========= AUTH / LOGIN ========= */
 
 function showLoginError(msg) {
@@ -267,8 +262,6 @@ function initFilters() {
       : (anosNosDados[0] ?? currentYear);
 
     selectedYears = [anoInicial];
-
-    // ✅ meses todos (podes trocar por [new Date().getMonth()+1] se quiseres só mês corrente)
     selectedMonths = [...mesesCompletos];
 
     // ✅ se não for admin, lock à entidade do login
@@ -292,7 +285,7 @@ function initFilters() {
     const passaMes = selectedMonths.length === 0 || (m && selectedMonths.includes(m));
 
     // se não for admin, só entidade do login
-    if (sessionInfo?.filter && sessionInfo.filter !== 'all') {
+    remember: if (sessionInfo?.filter && sessionInfo.filter !== 'all') {
       return passaAno && passaMes && toLowerTrim(getEntidade(r)) === toLowerTrim(sessionInfo.filter);
     }
 
@@ -388,7 +381,6 @@ function toggleMonth(m) {
     if (btn) btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm";
   }
 
-  // ✅ importante: actualizar entidades disponíveis quando muda mês
   initFilters();
   updateDashboard();
 }
@@ -469,16 +461,15 @@ function renderTrendChart(data) {
 
   const anosOrdenados = Object.keys(porAno).map(Number).sort((a, b) => a - b);
 
-  // Paleta de cores distintas para cada ano
   const paletaCores = [
-    { bg: 'rgba(59, 130, 246, 0.25)', border: 'rgb(59, 130, 246)' },      // azul
-    { bg: 'rgba(34, 197, 94, 0.25)', border: 'rgb(34, 197, 94)' },        // verde
-    { bg: 'rgba(239, 68, 68, 0.25)', border: 'rgb(239, 68, 68)' },        // vermelho
-    { bg: 'rgba(249, 115, 22, 0.25)', border: 'rgb(249, 115, 22)' },      // laranja
-    { bg: 'rgba(168, 85, 247, 0.25)', border: 'rgb(168, 85, 247)' },      // roxo
-    { bg: 'rgba(14, 165, 233, 0.25)', border: 'rgb(14, 165, 233)' },      // ciano
-    { bg: 'rgba(236, 72, 153, 0.25)', border: 'rgb(236, 72, 153)' },      // rosa
-    { bg: 'rgba(107, 114, 128, 0.25)', border: 'rgb(107, 114, 128)' }     // cinzento
+    { bg: 'rgba(59, 130, 246, 0.25)', border: 'rgb(59, 130, 246)' },
+    { bg: 'rgba(34, 197, 94, 0.25)', border: 'rgb(34, 197, 94)' },
+    { bg: 'rgba(239, 68, 68, 0.25)', border: 'rgb(239, 68, 68)' },
+    { bg: 'rgba(249, 115, 22, 0.25)', border: 'rgb(249, 115, 22)' },
+    { bg: 'rgba(168, 85, 247, 0.25)', border: 'rgb(168, 85, 247)' },
+    { bg: 'rgba(14, 165, 233, 0.25)', border: 'rgb(14, 165, 233)' },
+    { bg: 'rgba(236, 72, 153, 0.25)', border: 'rgb(236, 72, 153)' },
+    { bg: 'rgba(107, 114, 128, 0.25)', border: 'rgb(107, 114, 128)' }
   ];
 
   const datasets = anosOrdenados.map((ano, idx) => {
@@ -506,7 +497,7 @@ function renderTrendChart(data) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 450 }, // rápido e estável
+      animation: { duration: 450 },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
@@ -555,10 +546,7 @@ function renderYearComparisonChart(data) {
   const canvas = $('yearComparisonChart');
   if (!canvas) return;
 
-  // anos presentes após filtros
   const years = unique((data || []).map(parseYear).filter(Boolean)).sort((a, b) => a - b);
-
-  // entidades presentes nos dados filtrados
   const entidades = unique((data || []).map(getEntidade).filter(Boolean)).sort((a, b) => a.localeCompare(b));
 
   const datasets = entidades.map(ent => {
@@ -593,11 +581,7 @@ function renderYearComparisonChart(data) {
         },
         tooltip: {
           enabled: true,
-          callbacks: {
-            label: function(context) {
-              return context.dataset.label;
-            }
-          }
+          callbacks: { label: (context) => context.dataset.label }
         },
         datalabels: { display: false }
       },
@@ -620,7 +604,6 @@ function renderKeywordCharts(data) {
     return;
   }
 
-  // Lista completa (%) global no filtrado
   const countsGlobal = data.reduce((acc, r) => {
     const kw = getKeyword(r);
     if (!kw) return acc;
@@ -656,13 +639,10 @@ function renderKeywordCharts(data) {
 
   destroyChart('kwTop');
 
-  // multi-entidade => 1 dataset por entidade
   if (multiEntidade) {
     const datasets = entidades.map(ent => {
       const cor = colorForEntity(ent, 0.45);
-      const values = top5Keywords.map(kw =>
-        data.filter(r => getEntidade(r) === ent && getKeyword(r) === kw).length
-      );
+      const values = top5Keywords.map(kw => data.filter(r => getEntidade(r) === ent && getKeyword(r) === kw).length);
 
       return {
         label: ent,
@@ -684,14 +664,7 @@ function renderKeywordCharts(data) {
         interaction: { mode: 'point', intersect: true },
         plugins: {
           legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } } },
-          tooltip: {
-            enabled: true,
-            callbacks: {
-              label: function(context) {
-                return context.dataset.label;
-              }
-            }
-          },
+          tooltip: { enabled: true, callbacks: { label: (c) => c.dataset.label } },
           datalabels: { display: false }
         },
         scales: {
@@ -704,28 +677,24 @@ function renderKeywordCharts(data) {
     return;
   }
 
-  // 1 entidade => por ano
   const anosPresentes = unique(
     data.map(parseYear).filter(y => y && (selectedYears.length === 0 || selectedYears.includes(y)))
   ).sort((a, b) => a - b);
 
-  // Paleta de cores distintas para anos
   const paletaAnosCores = [
-    { bg: 'rgba(59, 130, 246, 0.45)', border: 'rgb(59, 130, 246)' },      // azul
-    { bg: 'rgba(34, 197, 94, 0.45)', border: 'rgb(34, 197, 94)' },        // verde
-    { bg: 'rgba(239, 68, 68, 0.45)', border: 'rgb(239, 68, 68)' },        // vermelho
-    { bg: 'rgba(249, 115, 22, 0.45)', border: 'rgb(249, 115, 22)' },      // laranja
-    { bg: 'rgba(168, 85, 247, 0.45)', border: 'rgb(168, 85, 247)' },      // roxo
-    { bg: 'rgba(14, 165, 233, 0.45)', border: 'rgb(14, 165, 233)' },      // ciano
-    { bg: 'rgba(236, 72, 153, 0.45)', border: 'rgb(236, 72, 153)' },      // rosa
-    { bg: 'rgba(107, 114, 128, 0.45)', border: 'rgb(107, 114, 128)' }     // cinzento
+    { bg: 'rgba(59, 130, 246, 0.45)', border: 'rgb(59, 130, 246)' },
+    { bg: 'rgba(34, 197, 94, 0.45)', border: 'rgb(34, 197, 94)' },
+    { bg: 'rgba(239, 68, 68, 0.45)', border: 'rgb(239, 68, 68)' },
+    { bg: 'rgba(249, 115, 22, 0.45)', border: 'rgb(249, 115, 22)' },
+    { bg: 'rgba(168, 85, 247, 0.45)', border: 'rgb(168, 85, 247)' },
+    { bg: 'rgba(14, 165, 233, 0.45)', border: 'rgb(14, 165, 233)' },
+    { bg: 'rgba(236, 72, 153, 0.45)', border: 'rgb(236, 72, 153)' },
+    { bg: 'rgba(107, 114, 128, 0.45)', border: 'rgb(107, 114, 128)' }
   ];
 
   const datasets = anosPresentes.map((ano, idx) => {
     const cor = paletaAnosCores[idx % paletaAnosCores.length];
-    const yearCounts = top5Keywords.map(kw =>
-      data.filter(r => parseYear(r) === ano && getKeyword(r) === kw).length
-    );
+    const yearCounts = top5Keywords.map(kw => data.filter(r => parseYear(r) === ano && getKeyword(r) === kw).length);
 
     return {
       label: String(ano),
@@ -747,14 +716,7 @@ function renderKeywordCharts(data) {
       interaction: { mode: 'point', intersect: true },
       plugins: {
         legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } } },
-        tooltip: {
-          enabled: true,
-          callbacks: {
-            label: function(context) {
-              return context.dataset.label;
-            }
-          }
-        },
+        tooltip: { enabled: true, callbacks: { label: (c) => c.dataset.label } },
         datalabels: { display: false }
       },
       scales: {
@@ -790,7 +752,6 @@ function renderTopKeywordByYear(data) {
     return sorted.length ? { kw: sorted[0][0], count: sorted[0][1] } : { kw: '-', count: 0 };
   }
 
-  // 1 entidade => cards por ano (grid largo)
   if (!multiEntidade) {
     const rows = years.map(y => {
       const subset = data.filter(r => parseYear(r) === y);
@@ -811,7 +772,6 @@ function renderTopKeywordByYear(data) {
     return;
   }
 
-  // multi-entidade => blocos por ano, dentro grid por entidades (ordenadas por número de registos)
   const blocks = years.map(y => {
     const entidadesOrdenadas = entidades
       .map(ent => {
@@ -862,7 +822,6 @@ function renderTempoResolucaoChart(data) {
   const entidades = getEntitiesForBreakdown(data);
   const multiEntidade = entidades.length > 1;
 
-  // recolhe tempos por entidade
   const temposPorEnt = {};
   entidades.forEach(e => temposPorEnt[e] = []);
 
@@ -876,7 +835,6 @@ function renderTempoResolucaoChart(data) {
 
   const allTempos = Object.values(temposPorEnt).flat();
 
-  // sem dados
   if (!allTempos.length) {
     destroyChart('tempoResolucao');
     if (statsEl) {
@@ -902,26 +860,16 @@ function renderTempoResolucaoChart(data) {
     return;
   }
 
-  // bins customizados: 0-20, 20-40, 40+
   const labels = ['0-20min', '20-40min', '40+min'];
-
-  const getBinIndex = (tempo) => {
-    if (tempo < 20) return 0;
-    if (tempo < 40) return 1;
-    return 2;
-  };
+  const getBinIndex = (tempo) => (tempo < 20 ? 0 : (tempo < 40 ? 1 : 2));
 
   const datasets = entidades.map(ent => {
     const tempos = temposPorEnt[ent] || [];
     const bins = Array(labels.length).fill(0);
 
-    tempos.forEach(t => {
-      const idx = getBinIndex(t);
-      bins[idx] += 1;
-    });
+    tempos.forEach(t => { bins[getBinIndex(t)] += 1; });
 
     const cor = colorForEntity(ent, 0.35);
-
     return {
       label: ent,
       data: bins,
@@ -946,14 +894,7 @@ function renderTempoResolucaoChart(data) {
         legend: multiEntidade
           ? { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } } }
           : { display: false },
-        tooltip: {
-          enabled: true,
-          callbacks: {
-            label: function(context) {
-              return context.dataset.label;
-            }
-          }
-        },
+        tooltip: { enabled: true, callbacks: { label: (c) => c.dataset.label } },
         datalabels: { display: false }
       },
       scales: {
@@ -963,7 +904,7 @@ function renderTempoResolucaoChart(data) {
     }
   });
 
-  // ===== Estatísticas =====
+  // stats (mantive o teu bloco original sem mexer)
   if (!statsEl) return;
 
   if (!multiEntidade) {
@@ -1046,15 +987,13 @@ function renderTempoResolucaoChart(data) {
   statsEl.innerHTML = `<div class="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">${cards}</div>`;
 }
 
-/* ========= PDF EXPORT ========= */
-/* ========= PDF EXPORT (FIX: centrado, sem cortes, 1 página, auto-fit) ========= */
+/* ========= PDF EXPORT (centrado, sem corte à direita, 1 página A4 e a ocupar a altura toda) ========= */
 
 function safeCanvasDataUrl(canvasId) {
   const c = document.getElementById(canvasId);
   if (!c || typeof c.toDataURL !== 'function') return '';
-  try {
-    return c.toDataURL('image/png'); // PNG = nítido; quality não aplica
-  } catch (e) {
+  try { return c.toDataURL('image/png'); }
+  catch (e) {
     console.warn(`Falha ao exportar canvas ${canvasId}:`, e);
     return '';
   }
@@ -1089,49 +1028,44 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
   `;
 }
 
-// util: espera dois frames (já tens no teu ficheiro, mas deixo fallback)
-async function waitTwoFramesSafe() {
-  if (typeof waitTwoFrames === 'function') return await waitTwoFrames();
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
 async function exportarRelatorio() {
   const btn = $('exportPdfBtn');
   if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
 
-  // restaurar DPR dos charts no fim
   let prevDPR = null;
 
-  // Constantes de página (A4 em mm)
+  // A4 em mm
   const PAGE_W_MM = 210;
   const PAGE_H_MM = 297;
-  const MARGIN_MM = 8;                  // margem real do PDF
-  const CONTENT_W_MM = PAGE_W_MM - (2 * MARGIN_MM);
-  const CONTENT_H_MM = PAGE_H_MM - (2 * MARGIN_MM);
 
-  // limites de altura dos gráficos (ajusta se quiseres)
+  // margem “visual” dentro do A4 (controlada por nós, e NÃO pelo html2pdf)
+  const PAD_MM = 8;
+
+  // área útil
+  const CONTENT_H_MM = PAGE_H_MM - (2 * PAD_MM);
+
+  // limites de auto-fit (para caber + preencher)
   const LIMITS = {
-    row1: { min: 80,  max: 150 },  // Tendência + Status
-    row2: { min: 85,  max: 160 },  // Ano + Top Keywords
-    row3: { min: 85,  max: 160 }   // Tempo Previsto
+    row1: { min: 80,  max: 170 },  // Tendência + Status
+    row2: { min: 85,  max: 175 },  // Ano + Top Keywords
+    row3: { min: 85,  max: 175 }   // Tempo Previsto
   };
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
   try {
     const filtered = filterData();
 
-    // 1) congela animações do Chart para export consistente
+    // 1) estabiliza charts
     Object.values(charts || {}).forEach(ch => { try { ch?.update?.('none'); } catch {} });
-    await waitTwoFramesSafe();
+    await waitTwoFrames();
 
-    // 2) aumenta definição dos gráficos só durante o export
+    // 2) aumenta definição dos charts durante o export
     if (window.Chart?.defaults) {
       prevDPR = Chart.defaults.devicePixelRatio;
       Chart.defaults.devicePixelRatio = 3;
-
-      Object.values(charts || {}).forEach(ch => {
-        try { ch?.resize?.(); ch?.update?.('none'); } catch {}
-      });
-      await waitTwoFramesSafe();
+      Object.values(charts || {}).forEach(ch => { try { ch?.resize?.(); ch?.update?.('none'); } catch {} });
+      await waitTwoFrames();
     }
 
     // 3) textos / KPIs
@@ -1162,14 +1096,14 @@ async function exportarRelatorio() {
       return Math.sqrt(v).toFixed(1);
     })();
 
-    // 4) imagens dos canvas (já em alta definição)
+    // 4) imagens (já em alta definição)
     const trendChartImg = safeCanvasDataUrl('lineTrendChart');
     const yearChartImg = safeCanvasDataUrl('yearComparisonChart');
     const pieChartImg = safeCanvasDataUrl('rncPieChart');
     const topKeywordsImg = safeCanvasDataUrl('topKeywordsChart');
     const tempoResolucaoImg = safeCanvasDataUrl('tempoResolucaoChart');
 
-    // 5) stage: DENTRO do viewport (evita cortes), mas invisível
+    // 5) Stage (NO VIEWPORT, sem cortar; invisível mas renderiza)
     const stage = document.createElement('div');
     stage.id = 'pdfStage';
     stage.style.position = 'fixed';
@@ -1180,35 +1114,35 @@ async function exportarRelatorio() {
     stage.style.display = 'flex';
     stage.style.justifyContent = 'center';
     stage.style.alignItems = 'flex-start';
-    stage.style.background = '#ffffff';
     stage.style.pointerEvents = 'none';
-    stage.style.visibility = 'hidden'; // ✅ invisível mas renderiza
     stage.style.zIndex = '2147483647';
+    stage.style.opacity = '0.001';     // ✅ não “hidden” (hidden = html2canvas ignora em muitos casos)
+    stage.style.background = '#fff';
     document.body.appendChild(stage);
 
-    // wrapper A4 (controla layout) + conteúdo centrado
+    // wrapper com TAMANHO EXACTO A4 (isto resolve o “corta à direita”)
     const wrapper = document.createElement('div');
     wrapper.style.width = `${PAGE_W_MM}mm`;
-    wrapper.style.boxSizing = 'border-box';
+    wrapper.style.height = `${PAGE_H_MM}mm`;
     wrapper.style.background = '#fff';
-    wrapper.style.padding = `${MARGIN_MM}mm`;
+    wrapper.style.boxSizing = 'border-box';
+    wrapper.style.padding = `${PAD_MM}mm`;
+    wrapper.style.overflow = 'hidden';
     stage.appendChild(wrapper);
 
-    // alturas iniciais (vamos ajustar com auto-fit)
-    let hRow1 = 115;
-    let hRow2 = 125;
-    let hRow3 = 125;
+    // alturas (vamos ajustar)
+    let hRow1 = 118;
+    let hRow2 = 128;
+    let hRow3 = 128;
 
     const buildHtml = () => `
-      <div id="pdfRoot"
-           style="
-             width:${CONTENT_W_MM}mm;
-             box-sizing:border-box;
-             font-family: Arial, sans-serif;
-             background:#fff;
-             color:#0f172a;
-           ">
+      <style>
+        #pdfRoot, #pdfRoot * { box-sizing: border-box; }
+        #pdfRoot { width:100%; max-width:100%; overflow:hidden; font-family: Arial, sans-serif; background:#fff; color:#0f172a; }
+        .pdfRow { margin-bottom:8px; }
+      </style>
 
+      <div id="pdfRoot">
         <div style="margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
             <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height:32px;">
@@ -1217,7 +1151,7 @@ async function exportarRelatorio() {
           <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Sistema de Análise de Não Conformidades</p>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px; font-size:10px;">
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:10px;">
           <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #3b82f6;">
             <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Entidade</p>
             <p style="margin:3px 0 0 0; font-weight:700; font-size:11px; line-height:1.2;">${entidadeTexto}</p>
@@ -1228,24 +1162,24 @@ async function exportarRelatorio() {
           </div>
         </div>
 
-        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:8px;">
+        <div class="pdfRow" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
           ${kpiBox('Total Registos', filtered.length, '#0f172a')}
           ${kpiBox('Entidades Ativas', entidadesUnicas, '#2563eb')}
           ${kpiBox('RNCs em Aberto', abertas, '#ef4444')}
           ${kpiBox('Taxa de Resolução', taxa + '%', '#16a34a')}
         </div>
 
-        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-bottom:8px;">
+        <div class="pdfRow" style="display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
           ${imgCard('Tendência Mensal (por Ano)', trendChartImg, hRow1)}
           ${imgCard('Status Geral RNCs', pieChartImg, hRow1)}
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
           ${imgCard('Total RNCs por Ano', yearChartImg, hRow2)}
           ${imgCard('Top 5 Keywords', topKeywordsImg, hRow2)}
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
           ${imgCard('Tempo Previsto de Resolução', tempoResolucaoImg, hRow3)}
           <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; box-sizing:border-box;">
             <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
@@ -1266,103 +1200,89 @@ async function exportarRelatorio() {
       </div>
     `;
 
-    // inject inicial
     wrapper.innerHTML = buildHtml();
-    const root = wrapper.querySelector('#pdfRoot');
+    await waitTwoFrames();
 
-    // espera fonts/imagens
+    // aguarda fontes + imagens
     if (document.fonts?.ready) await document.fonts.ready;
-
     const imgs = Array.from(wrapper.querySelectorAll('img'));
     await Promise.all(imgs.map(img => {
       if (img.complete && img.naturalWidth > 0) return Promise.resolve();
       return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
     }));
+    await waitTwoFrames();
 
-    await waitTwoFramesSafe();
+    const root = wrapper.querySelector('#pdfRoot');
 
-    // mm->px real baseado na largura renderizada (evita suposições de 96dpi)
+    // alvo de altura em px: usa mm->px real da largura renderizada (sem supor 96dpi)
     const pxPerMm = wrapper.getBoundingClientRect().width / PAGE_W_MM;
     const targetHeightPx = CONTENT_H_MM * pxPerMm;
 
-    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
-    // === AUTO-FIT bidireccional: encolhe se excede; aumenta se sobra espaço ===
-    for (let i = 0; i < 10; i++) {
+    // AUTO-FIT: encolhe se excede; aumenta se sobra espaço (para ocupar a altura toda)
+    for (let i = 0; i < 12; i++) {
       const currentH = root.scrollHeight;
       const diff = targetHeightPx - currentH;
 
-      // tolerância ~ 6px
       if (Math.abs(diff) < 6) break;
 
-      // distribuir ajuste pelos 3 blocos (mais peso em row1)
-      const step = diff * 0.35; // suaviza para não oscilar
+      // ajuste suave (evita “ping-pong”)
+      const step = diff * 0.35;
+
       hRow1 = clamp(Math.round(hRow1 + step * 0.45), LIMITS.row1.min, LIMITS.row1.max);
       hRow2 = clamp(Math.round(hRow2 + step * 0.30), LIMITS.row2.min, LIMITS.row2.max);
       hRow3 = clamp(Math.round(hRow3 + step * 0.25), LIMITS.row3.min, LIMITS.row3.max);
 
       wrapper.innerHTML = buildHtml();
-      await waitTwoFramesSafe();
+      await waitTwoFrames();
     }
 
-    // 6) Export final (unidades em mm -> menos surpresas)
+    // 6) Export: SEM margens do html2pdf (porque o wrapper já tem padding interno)
     const opt = {
-      margin: [MARGIN_MM, MARGIN_MM, MARGIN_MM, MARGIN_MM],
+      margin: 0,
       filename: `Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`,
       image: { type: 'png' },
       html2canvas: {
-        scale: 3, // nítido
+        scale: 3,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         scrollX: 0,
         scrollY: 0,
-        windowWidth: wrapper.scrollWidth,
-        windowHeight: wrapper.scrollHeight
+        windowWidth: Math.ceil(wrapper.getBoundingClientRect().width),
+        windowHeight: Math.ceil(wrapper.getBoundingClientRect().height)
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      // força 1 página: se algo ultrapassar, o teu auto-fit deve evitar
       pagebreak: { mode: ['avoid-all'] }
     };
 
-    await html2pdf().set(opt).from(wrapper.querySelector('#pdfRoot')).save();
+    await html2pdf().set(opt).from(wrapper).save();
 
-    // cleanup
     document.body.removeChild(stage);
 
   } catch (e) {
     console.error(e);
     alert(`Erro ao exportar PDF: ${e.message}`);
   } finally {
-    // restaura DPR
     if (prevDPR !== null && window.Chart?.defaults) {
       Chart.defaults.devicePixelRatio = prevDPR;
-      Object.values(charts || {}).forEach(ch => {
-        try { ch?.resize?.(); ch?.update?.('none'); } catch {}
-      });
+      Object.values(charts || {}).forEach(ch => { try { ch?.resize?.(); ch?.update?.('none'); } catch {} });
     }
-
     if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
   }
 }
 
-
-
-
 /* ========= MODAL / UI ========= */
 
-// Função para atualizar cor do botão de aplicar (apenas 1x, removi duplicado)
 function updateButtonColor() {
   const closeBtn = $('closeEntidadeModal');
   if (!closeBtn) return;
 
   if (entidadesSelecionadasTemp && entidadesSelecionadasTemp.length > 0) {
     closeBtn.style.backgroundColor = 'rgb(34, 197, 94)'; // verde
-    closeBtn.style.cursor = 'pointer';
   } else {
     closeBtn.style.backgroundColor = 'rgb(71, 85, 105)'; // cinzento
-    closeBtn.style.cursor = 'pointer';
   }
+  closeBtn.style.cursor = 'pointer';
 }
 
 /* ========= MODAL ENTIDADES ========= */
@@ -1381,7 +1301,7 @@ function closeEntidadeModal(apply = true) {
   if (apply) {
     selectedEntidades = entidadesSelecionadasTemp.slice();
     renderEntidadeTags();
-    initFilters(); // ✅ garante coerência dos filtros/entidades disponíveis
+    initFilters();
     updateDashboard();
   }
   $('entidadeModal')?.classList.add('hidden');
@@ -1462,7 +1382,7 @@ function renderEntidadeTags() {
     btn.addEventListener('click', () => {
       selectedEntidades = selectedEntidades.filter(x => x.toLowerCase() !== ent.toLowerCase());
       renderEntidadeTags();
-      initFilters(); // ✅ mantém lista de entidades coerente com o período
+      initFilters();
       updateDashboard();
     });
 
@@ -1480,17 +1400,15 @@ window.addEventListener('DOMContentLoaded', () => {
   $('exportPdfBtn')?.addEventListener('click', exportarRelatorio);
   $('logoutBtn')?.addEventListener('click', () => location.reload());
 
-  // enter no login
   $('passInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleLogin();
   });
 
   // Modal Entidades (admin)
-  $('openEntidadeModal')?.addEventListener('click', () => openEntidadeModal());
+  $('openEntidadeModal')?.addEventListener('click', openEntidadeModal);
   $('closeEntidadeModal')?.addEventListener('click', () => closeEntidadeModal(true));
   $('entidadeModalOverlay')?.addEventListener('click', () => closeEntidadeModal(true));
 
-  // Botões do modal
   $('entSelectAll')?.addEventListener('click', () => {
     entidadesSelecionadasTemp = entidadesDisponiveis.slice();
     renderEntidadeModalList(entidadesDisponiveis, entidadesSelecionadasTemp);
@@ -1501,16 +1419,12 @@ window.addEventListener('DOMContentLoaded', () => {
     renderEntidadeModalList(entidadesDisponiveis, entidadesSelecionadasTemp);
   });
 
-  // Pesquisa dentro do modal
   $('entidadeSearch')?.addEventListener('input', (e) => {
     const q = (e.target.value || '').toLowerCase().trim();
-    const filtradas = !q
-      ? entidadesDisponiveis
-      : entidadesDisponiveis.filter(x => x.toLowerCase().includes(q));
+    const filtradas = !q ? entidadesDisponiveis : entidadesDisponiveis.filter(x => x.toLowerCase().includes(q));
     renderEntidadeModalList(filtradas, entidadesSelecionadasTemp);
   });
 
-  // ESC fecha modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const modal = $('entidadeModal');

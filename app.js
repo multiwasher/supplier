@@ -13,7 +13,9 @@ const MES_NOMES = {
 const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MESES_FULL = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 
-Chart.register(ChartDataLabels);
+if (window.Chart && window.ChartDataLabels) {
+  Chart.register(ChartDataLabels);
+}
 
 /* ========= STATE ========= */
 
@@ -26,6 +28,9 @@ let selectedEntidades = [];  // multi-select; vazio => "todas"
 
 let charts = {};
 let isFirstLoad = true;
+
+let entidadesDisponiveis = [];      // cache das entidades existentes
+let entidadesSelecionadasTemp = []; // seleção temporária dentro do modal
 
 /* ========= HELPERS ========= */
 
@@ -46,13 +51,13 @@ function toLowerTrim(v) {
 }
 
 function parseYear(row) {
-  const v = row['Ano'] ?? row['ANO'] ?? row['ano'];
+  const v = row?.['Ano'] ?? row?.['ANO'] ?? row?.['ano'];
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
 function parseMonth(row) {
-  const v = row['Mês'] ?? row['MÊS'] ?? row['MES'] ?? row['mes'] ?? row['mês'];
+  const v = row?.['Mês'] ?? row?.['MÊS'] ?? row?.['MES'] ?? row?.['mes'] ?? row?.['mês'];
   if (v === null || v === undefined || v === '') return null;
 
   const n = Number(v);
@@ -63,20 +68,20 @@ function parseMonth(row) {
 }
 
 function getEntidade(row) {
-  return normalizeString(row['Entidade'] ?? row['ENTIDADE'] ?? row['entidade']);
+  return normalizeString(row?.['Entidade'] ?? row?.['ENTIDADE'] ?? row?.['entidade']);
 }
 
 function getStatus(row) {
-  return toLowerTrim(row['Status'] ?? row['STATUS'] ?? row['status']);
+  return toLowerTrim(row?.['Status'] ?? row?.['STATUS'] ?? row?.['status']);
 }
 
 function getKeyword(row) {
-  const v = row['KEYWORD'] ?? row['Keyword'] ?? row['keyword'];
+  const v = row?.['KEYWORD'] ?? row?.['Keyword'] ?? row?.['keyword'];
   return normalizeString(v);
 }
 
 function getTempoPrevisto(row) {
-  const v = row['Tempo Previsto de Resolução (min)'] ?? row['tempo_resolucao_min'];
+  const v = row?.['Tempo Previsto de Resolução (min)'] ?? row?.['tempo_resolucao_min'];
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -85,11 +90,48 @@ function unique(arr) {
   return [...new Set(arr)];
 }
 
+function getEntitiesForBreakdown(data) {
+  // Admin: se não seleciona nada => "todas" => usa as entidades presentes nos dados filtrados
+  const ents = (selectedEntidades && selectedEntidades.length > 0)
+    ? selectedEntidades.slice()
+    : unique((data || []).map(getEntidade).filter(Boolean));
+
+  return ents.sort((a, b) => a.localeCompare(b));
+}
+
+// cores consistentes por entidade (hash simples) – minimalista / suave
+function colorForEntity(ent, alpha = 0.45) {
+  const s = (ent || '').toString();
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  }
+
+  const hue = hash % 360;
+  const saturation = 22;  // suave
+  const lightness = 60;   // claro
+
+  return {
+    bg: `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`,
+    border: `hsla(${hue}, ${saturation}%, ${lightness - 10}%, 0.9)`
+  };
+}
+
+function waitTwoFrames() {
+  return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
+function mmToPx(mm) {
+  // 96dpi -> px por polegada; 25.4mm por polegada
+  return Math.round(mm * (96 / 25.4));
+}
+
 /* ========= AUTH / LOGIN ========= */
 
 function showLoginError(msg) {
   const err = $('loginError');
   const btn = $('loginBtn');
+  if (!err || !btn) return;
   err.innerText = msg;
   err.classList.remove('hidden');
   btn.disabled = false;
@@ -112,14 +154,16 @@ async function postAction(payload) {
 }
 
 async function handleLogin() {
-  const user = normalizeString($('userInput').value);
-  const pass = normalizeString($('passInput').value);
+  const user = normalizeString($('userInput')?.value);
+  const pass = normalizeString($('passInput')?.value);
   const btn = $('loginBtn');
 
   if (!user || !pass) return showLoginError("Preenche os dois campos.");
 
-  btn.disabled = true;
-  btn.innerText = "A validar...";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "A validar...";
+  }
 
   try {
     const res = await postAction({ action: 'checkLogin', user, pass });
@@ -135,13 +179,14 @@ async function handleLogin() {
 /* ========= DASHBOARD FLOW ========= */
 
 function startDashboard() {
-  $('loginView').classList.add('hidden');
-  $('mainView').classList.remove('hidden');
+  $('loginView')?.classList.add('hidden');
+  $('mainView')?.classList.remove('hidden');
 
-  $('userWelcome').innerText = `Entidade: ${sessionInfo.username}`;
+  const welcome = $('userWelcome');
+  if (welcome) welcome.innerText = `Entidade: ${sessionInfo?.username ?? '-'}`;
 
   // master vê filtro de entidades
-  if (sessionInfo.filter === 'all') $('entidadeFilterContainer').classList.remove('hidden');
+  if (sessionInfo?.filter === 'all') $('entidadeFilterContainer')?.classList.remove('hidden');
 
   fetchData();
 }
@@ -177,9 +222,11 @@ async function refreshData() {
   const icon = $('refreshIcon');
   const btn = $('refreshDataBtn');
 
-  btn.disabled = true;
-  btn.classList.add('opacity-75');
-  icon.style.animation = 'spin 1.2s linear infinite';
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('opacity-75');
+  }
+  if (icon) icon.style.animation = 'spin 1.2s linear infinite';
 
   try {
     await fetchData();
@@ -187,127 +234,131 @@ async function refreshData() {
   } catch (e) {
     alert(`Erro ao atualizar: ${e.message}`);
   } finally {
-    icon.style.animation = 'none';
-    btn.disabled = false;
-    btn.classList.remove('opacity-75');
+    if (icon) icon.style.animation = 'none';
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-75');
+    }
   }
 }
 
 /* ========= FILTERS ========= */
 
 function initFilters() {
-  const anosNosDados = unique(allData.map(parseYear).filter(Boolean)).sort((a, b) => b - a);
-  const entidades = unique(allData.map(getEntidade).filter(Boolean)).sort((a, b) => a.localeCompare(b));
-
   const currentYear = new Date().getFullYear();
+
+  // anos disponíveis nos dados (para botões)
+  const anosNosDados = unique(allData.map(parseYear).filter(Boolean)).sort((a, b) => b - a);
+
+  // se não houver anos nos dados, cria fallback
   const anos = anosNosDados.length
     ? anosNosDados
     : Array.from({ length: (currentYear - 2022 + 1) }, (_, i) => 2022 + i).sort((a, b) => b - a);
 
   const mesesCompletos = [1,2,3,4,5,6,7,8,9,10,11,12];
 
-  // primeira carga: seleciona tudo
+  // =========================
+  // 1) PRIMEIRA CARGA
+  // =========================
   if (isFirstLoad) {
-    selectedYears = [...anos];
+    // ✅ só ano corrente (se existir nos dados; se não existir, cai no mais recente disponível)
+    const anoInicial = anosNosDados.includes(currentYear)
+      ? currentYear
+      : (anosNosDados[0] ?? currentYear);
+
+    selectedYears = [anoInicial];
+
+    // ✅ meses todos (podes trocar por [new Date().getMonth()+1] se quiseres só mês corrente)
     selectedMonths = [...mesesCompletos];
 
-    // se não for admin, “lock” à entidade do login
-    if (sessionInfo.filter !== 'all') {
-      selectedEntidades = [sessionInfo.filter];
+    // ✅ se não for admin, lock à entidade do login
+    if (sessionInfo?.filter !== 'all') {
+      selectedEntidades = [sessionInfo?.filter].filter(Boolean);
     } else {
-      selectedEntidades = []; // vazio = todas
+      selectedEntidades = [];
     }
 
     isFirstLoad = false;
   }
 
-  // ===== Entidades (multi-select) — apenas admin =====
-  if (sessionInfo.filter === 'all') {
-    const boxContainer = $('entidadeCheckboxes');
-    if (boxContainer) {
-      boxContainer.innerHTML = '';
+  // =========================
+  // 2) ENTIDADES DISPONÍVEIS (com dados no período activo)
+  // =========================
+  const dataPeriodo = allData.filter(r => {
+    const y = parseYear(r);
+    const m = parseMonth(r);
 
-      const selectedLower = selectedEntidades.map(e => e.toLowerCase());
+    const passaAno = selectedYears.length === 0 || (y && selectedYears.includes(y));
+    const passaMes = selectedMonths.length === 0 || (m && selectedMonths.includes(m));
 
-      entidades.forEach(ent => {
-        const safeId = ent.replace(/[^\w\-]/g, '_');
-        const id = `ent_${safeId}`;
-
-        const wrapper = document.createElement('label');
-        wrapper.className = "flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-700/40 cursor-pointer select-none";
-
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.id = id;
-        cb.value = ent;
-        cb.className = "accent-blue-500";
-        cb.checked = selectedLower.includes(ent.toLowerCase());
-
-        cb.addEventListener('change', () => {
-          const checked = Array.from(boxContainer.querySelectorAll('input[type="checkbox"]:checked'))
-            .map(x => x.value);
-
-          selectedEntidades = checked; // multi-select; vazio => todas
-          updateDashboard();
-        });
-
-        const span = document.createElement('span');
-        span.className = "text-white text-[11px] font-bold";
-        span.innerText = ent;
-
-        wrapper.appendChild(cb);
-        wrapper.appendChild(span);
-        boxContainer.appendChild(wrapper);
-      });
-
-      const btnAll = $('entSelectAll');
-      const btnClear = $('entClearAll');
-
-      if (btnAll) {
-        btnAll.onclick = () => {
-          Array.from(boxContainer.querySelectorAll('input[type="checkbox"]')).forEach(cb => cb.checked = true);
-          selectedEntidades = entidades.slice();
-          updateDashboard();
-        };
-      }
-
-      if (btnClear) {
-        btnClear.onclick = () => {
-          Array.from(boxContainer.querySelectorAll('input[type="checkbox"]')).forEach(cb => cb.checked = false);
-          selectedEntidades = []; // vazio => todas
-          updateDashboard();
-        };
-      }
+    // se não for admin, só entidade do login
+    if (sessionInfo?.filter && sessionInfo.filter !== 'all') {
+      return passaAno && passaMes && toLowerTrim(getEntidade(r)) === toLowerTrim(sessionInfo.filter);
     }
+
+    return passaAno && passaMes;
+  });
+
+  // só entidades que EXISTEM e têm registos nesse período
+  const entidadesPeriodo = unique(dataPeriodo.map(getEntidade).filter(Boolean))
+    .sort((a, b) => a.localeCompare(b));
+
+  if (sessionInfo?.filter === 'all') {
+    entidadesDisponiveis = entidadesPeriodo.slice();
+
+    // se admin tinha entidades selecionadas que já não existem no período, limpa-as
+    if (selectedEntidades.length) {
+      const setDisp = new Set(entidadesDisponiveis.map(toLowerTrim));
+      selectedEntidades = selectedEntidades.filter(e => setDisp.has(toLowerTrim(e)));
+    }
+
+    renderEntidadeTags();
+    renderEntidadeModalList(entidadesDisponiveis, selectedEntidades);
+  } else {
+    entidadesDisponiveis = entidadesPeriodo.slice();
   }
 
-  // ===== Anos (botões) =====
+  // =========================
+  // 3) RENDER BOTÕES ANOS
+  // =========================
   const yearContainer = $('yearCheckboxes');
-  yearContainer.innerHTML = '';
-  anos.forEach(ano => {
-    const btn = document.createElement('button');
-    btn.id = `year_${ano}`;
-    btn.innerText = ano;
-    btn.className = selectedYears.includes(ano)
-      ? "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm"
-      : "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
-    btn.onclick = () => toggleYear(ano);
-    yearContainer.appendChild(btn);
-  });
+  if (yearContainer) {
+    yearContainer.innerHTML = '';
+    anos.forEach(ano => {
+      const btn = document.createElement('button');
+      btn.id = `year_${ano}`;
+      btn.innerText = ano;
 
-  // ===== Meses (botões) =====
+      const active = selectedYears.includes(ano);
+      btn.className = active
+        ? "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm"
+        : "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
+
+      btn.onclick = () => toggleYear(ano);
+      yearContainer.appendChild(btn);
+    });
+  }
+
+  // =========================
+  // 4) RENDER BOTÕES MESES
+  // =========================
   const monthContainer = $('monthCheckboxes');
-  monthContainer.innerHTML = '';
-  mesesCompletos.forEach(m => {
-    const btn = document.createElement('button');
-    btn.id = `month_${m}`;
-    btn.innerText = MESES_FULL[m - 1];
-    btn.className = selectedMonths.includes(m)
-      ? "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm"
-      : "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
-    btn.onclick = () => toggleMonth(m);
-    monthContainer.appendChild(btn);
-  });
+  if (monthContainer) {
+    monthContainer.innerHTML = '';
+    mesesCompletos.forEach(m => {
+      const btn = document.createElement('button');
+      btn.id = `month_${m}`;
+      btn.innerText = MESES_FULL[m - 1];
+
+      const active = selectedMonths.includes(m);
+      btn.className = active
+        ? "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm"
+        : "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
+
+      btn.onclick = () => toggleMonth(m);
+      monthContainer.appendChild(btn);
+    });
+  }
 }
 
 function toggleYear(ano) {
@@ -316,11 +367,13 @@ function toggleYear(ano) {
 
   if (selectedYears.includes(ano)) {
     selectedYears = selectedYears.filter(y => y !== ano);
-    btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
+    if (btn) btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
   } else {
     selectedYears.push(ano);
-    btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm";
+    if (btn) btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-blue-600 text-white shadow-sm";
   }
+
+  initFilters();
   updateDashboard();
 }
 
@@ -329,18 +382,21 @@ function toggleMonth(m) {
 
   if (selectedMonths.includes(m)) {
     selectedMonths = selectedMonths.filter(x => x !== m);
-    btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
+    if (btn) btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-white text-slate-400 border border-slate-200 hover:bg-slate-50";
   } else {
     selectedMonths.push(m);
-    btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm";
+    if (btn) btn.className = "px-4 py-1.5 rounded-xl text-[11px] font-black transition-all bg-purple-600 text-white shadow-sm";
   }
+
+  // ✅ importante: actualizar entidades disponíveis quando muda mês
+  initFilters();
   updateDashboard();
 }
 
 /* ========= MAIN UPDATE ========= */
 
 function filterData() {
-  const entFilter = selectedEntidades.map(toLowerTrim);
+  const entFilter = (selectedEntidades || []).map(toLowerTrim);
 
   return allData.filter(row => {
     const y = parseYear(row);
@@ -365,27 +421,25 @@ function filterData() {
 function updateDashboard() {
   const filtered = filterData();
 
-  // KPIs (status "aberto/fechado" — se tiveres outros estados depois afinamos)
+  // KPIs
   const abertas = filtered.filter(r => getStatus(r) === 'aberto').length;
   const fechadas = filtered.filter(r => getStatus(r) === 'fechado').length;
   const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
 
-  $('kpiTotal').innerText = filtered.length;
+  if ($('kpiTotal')) $('kpiTotal').innerText = filtered.length;
 
   const entidadesAtivas = unique(filtered.map(getEntidade).filter(Boolean)).length;
-  $('kpiEntidades').innerText = entidadesAtivas;
+  if ($('kpiEntidades')) $('kpiEntidades').innerText = entidadesAtivas;
 
-  $('kpiAberto').innerText = abertas;
-  $('kpiTaxa').innerText = `${taxa}%`;
+  if ($('kpiAberto')) $('kpiAberto').innerText = abertas;
+  if ($('kpiTaxa')) $('kpiTaxa').innerText = `${taxa}%`;
 
   // Charts
-  renderTrendChart(filtered);                // ✅ 1 linha por ano, com cores
+  renderTrendChart(filtered);
   renderPieChart(abertas, fechadas);
   renderYearComparisonChart(filtered);
-  renderKeywordCharts(filtered);            // ✅ Top 5 keywords com cores por ano
+  renderKeywordCharts(filtered);
   renderTopKeywordByYear(filtered);
-
-  // Tempo Previsto
   renderTempoResolucaoChart(filtered);
 }
 
@@ -400,11 +454,11 @@ function destroyChart(key) {
 
 /* ========= CHARTS ========= */
 
-// 1) Tendência Mensal — 1 dataset por Ano (cores diferentes)
+// 1) Tendência Mensal — 1 dataset por Ano (cores distintas)
 function renderTrendChart(data) {
   const porAno = {};
 
-  data.forEach(row => {
+  (data || []).forEach(row => {
     const ano = parseYear(row);
     const mes = parseMonth(row);
     if (!ano || !mes) return;
@@ -415,36 +469,44 @@ function renderTrendChart(data) {
 
   const anosOrdenados = Object.keys(porAno).map(Number).sort((a, b) => a - b);
 
-  const cores = [
-    { line: 'rgba(59,130,246,1)', fill: 'rgba(59,130,246,0.2)' },
-    { line: 'rgba(16,185,129,1)', fill: 'rgba(16,185,129,0.2)' },
-    { line: 'rgba(139,92,246,1)', fill: 'rgba(139,92,246,0.2)' },
-    { line: 'rgba(234,88,12,1)', fill: 'rgba(234,88,12,0.2)' },
-    { line: 'rgba(220,38,38,1)', fill: 'rgba(220,38,38,0.2)' }
+  // Paleta de cores distintas para cada ano
+  const paletaCores = [
+    { bg: 'rgba(59, 130, 246, 0.25)', border: 'rgb(59, 130, 246)' },      // azul
+    { bg: 'rgba(34, 197, 94, 0.25)', border: 'rgb(34, 197, 94)' },        // verde
+    { bg: 'rgba(239, 68, 68, 0.25)', border: 'rgb(239, 68, 68)' },        // vermelho
+    { bg: 'rgba(249, 115, 22, 0.25)', border: 'rgb(249, 115, 22)' },      // laranja
+    { bg: 'rgba(168, 85, 247, 0.25)', border: 'rgb(168, 85, 247)' },      // roxo
+    { bg: 'rgba(14, 165, 233, 0.25)', border: 'rgb(14, 165, 233)' },      // ciano
+    { bg: 'rgba(236, 72, 153, 0.25)', border: 'rgb(236, 72, 153)' },      // rosa
+    { bg: 'rgba(107, 114, 128, 0.25)', border: 'rgb(107, 114, 128)' }     // cinzento
   ];
 
   const datasets = anosOrdenados.map((ano, idx) => {
-    const cor = cores[idx % cores.length];
+    const cor = paletaCores[idx % paletaCores.length];
     return {
       label: String(ano),
       data: porAno[ano],
-      borderColor: cor.line,
-      backgroundColor: cor.fill,
+      borderColor: cor.border,
+      backgroundColor: cor.bg,
       tension: 0.35,
       fill: true,
-      pointRadius: 3,
-      pointHoverRadius: 5
+      pointRadius: 2,
+      pointHoverRadius: 4
     };
   });
 
   destroyChart('trend');
 
-  charts.trend = new Chart($('lineTrendChart'), {
+  const canvas = $('lineTrendChart');
+  if (!canvas) return;
+
+  charts.trend = new Chart(canvas, {
     type: 'line',
     data: { labels: MESES_ABREV, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 450 }, // rápido e estável
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
@@ -464,7 +526,10 @@ function renderTrendChart(data) {
 function renderPieChart(aberto, fechado) {
   destroyChart('pie');
 
-  charts.pie = new Chart($('rncPieChart'), {
+  const canvas = $('rncPieChart');
+  if (!canvas) return;
+
+  charts.pie = new Chart(canvas, {
     type: 'doughnut',
     data: {
       labels: ['Aberto', 'Fechado'],
@@ -473,6 +538,7 @@ function renderPieChart(aberto, fechado) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 450 },
       cutout: '75%',
       plugins: {
         legend: { position: 'bottom' },
@@ -486,100 +552,52 @@ function renderPieChart(aberto, fechado) {
 }
 
 function renderYearComparisonChart(data) {
-  const years = unique(data.map(parseYear).filter(Boolean)).sort((a, b) => a - b);
+  const canvas = $('yearComparisonChart');
+  if (!canvas) return;
 
-  const yearCounts = years.reduce((acc, y) => {
-    acc[y] = data.filter(r => parseYear(r) === y).length;
-    return acc;
-  }, {});
+  // anos presentes após filtros
+  const years = unique((data || []).map(parseYear).filter(Boolean)).sort((a, b) => a - b);
 
-  destroyChart('yearBar');
+  // entidades presentes nos dados filtrados
+  const entidades = unique((data || []).map(getEntidade).filter(Boolean)).sort((a, b) => a.localeCompare(b));
 
-  charts.yearBar = new Chart($('yearComparisonChart'), {
-    type: 'bar',
-    data: {
-      labels: Object.keys(yearCounts),
-      datasets: [{
-        data: Object.values(yearCounts),
-        borderRadius: 12,
-        barThickness: 30
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, datalabels: { display: false } },
-      scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
-    }
-  });
-}
-
-// 2) Top 5 Keywords — barras agrupadas por Ano (cores por ano)
-function renderKeywordCharts(data) {
-  const listContainer = $('keywordPercentageList');
-
-  if (!data || data.length === 0) {
-    listContainer.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados</p>';
-    destroyChart('kwTop');
-    return;
-  }
-
-  const counts = data.reduce((acc, r) => {
-    const kw = getKeyword(r);
-    if (!kw) return acc;
-    acc[kw] = (acc[kw] || 0) + 1;
-    return acc;
-  }, {});
-
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const total = data.length;
-
-  // ---------- Top 5 Keywords (com separação por Ano) ----------
-  const top5Keywords = sorted.slice(0, 5).map(x => x[0]);
-
-  const anosPresentes = unique(
-    data.map(parseYear).filter(y => y && (selectedYears.length === 0 || selectedYears.includes(y)))
-  ).sort((a, b) => a - b);
-
-  const cores = [
-    { bg: 'rgba(59,130,246,0.7)', border: 'rgba(59,130,246,1)' },
-    { bg: 'rgba(16,185,129,0.7)', border: 'rgba(16,185,129,1)' },
-    { bg: 'rgba(139,92,246,0.7)', border: 'rgba(139,92,246,1)' },
-    { bg: 'rgba(234,88,12,0.7)', border: 'rgba(234,88,12,1)' },
-    { bg: 'rgba(220,38,38,0.7)', border: 'rgba(220,38,38,1)' }
-  ];
-
-  const datasets = anosPresentes.map((ano, idx) => {
-    const cor = cores[idx % cores.length];
-    const yearCounts = top5Keywords.map(kw => {
-      return data.filter(r => parseYear(r) === ano && getKeyword(r) === kw).length;
-    });
+  const datasets = entidades.map(ent => {
+    const cor = colorForEntity(ent, 0.45);
+    const values = years.map(y => (data || []).filter(r => parseYear(r) === y && getEntidade(r) === ent).length);
 
     return {
-      label: String(ano),
-      data: yearCounts,
+      label: ent,
+      data: values,
       backgroundColor: cor.bg,
       borderColor: cor.border,
       borderWidth: 1,
-      borderRadius: 8
+      borderRadius: 10,
+      barThickness: 22
     };
   });
 
-  destroyChart('kwTop');
+  destroyChart('yearBar');
 
-  charts.kwTop = new Chart($('topKeywordsChart'), {
+  charts.yearBar = new Chart(canvas, {
     type: 'bar',
-    data: {
-      labels: top5Keywords,
-      datasets
-    },
+    data: { labels: years.map(String), datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 450 },
+      interaction: { mode: 'point', intersect: true },
       plugins: {
         legend: {
           position: 'bottom',
           labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } }
+        },
+        tooltip: {
+          enabled: true,
+          callbacks: {
+            label: function(context) {
+              return context.dataset.label;
+            }
+          }
         },
         datalabels: { display: false }
       },
@@ -589,133 +607,453 @@ function renderKeywordCharts(data) {
       }
     }
   });
-
-  // ---------- Lista % completa ----------
-  listContainer.innerHTML = sorted.map(([kw, count]) => {
-    const perc = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
-    return `
-      <div class="animate-fade p-2 hover:bg-slate-50 rounded-xl">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-[10px] font-bold text-slate-700 truncate">${kw}</span>
-          <span class="text-[9px] font-black text-blue-600">${perc}%</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-1">
-          <div class="bg-blue-500 h-1 rounded-full" style="width:${perc}%"></div>
-        </div>
-      </div>
-    `;
-  }).join('');
 }
 
-function renderTopKeywordByYear(data) {
-  const container = $('topKeywordByYearContainer');
+// 2) Top 5 Keywords — por entidade (quando multi-entidade), senão por ano
+function renderKeywordCharts(data) {
+  const listContainer = $('keywordPercentageList');
+  const canvas = $('topKeywordsChart');
 
-  const byYear = {};
-  data.forEach(r => {
-    const y = parseYear(r);
+  if (!data || data.length === 0) {
+    if (listContainer) listContainer.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados</p>';
+    destroyChart('kwTop');
+    return;
+  }
+
+  // Lista completa (%) global no filtrado
+  const countsGlobal = data.reduce((acc, r) => {
     const kw = getKeyword(r);
-    if (!y || !kw) return;
+    if (!kw) return acc;
+    acc[kw] = (acc[kw] || 0) + 1;
+    return acc;
+  }, {});
 
-    byYear[y] ||= {};
-    byYear[y][kw] = (byYear[y][kw] || 0) + 1;
-  });
+  const sortedGlobal = Object.entries(countsGlobal).sort((a, b) => b[1] - a[1]);
+  const total = data.length;
 
-  const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
-  if (years.length === 0) {
-    container.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Sem dados</p>';
+  if (listContainer) {
+    listContainer.innerHTML = sortedGlobal.map(([kw, count]) => {
+      const perc = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+      return `
+        <div class="animate-fade p-2 hover:bg-slate-50 rounded-xl">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] font-bold text-slate-700 truncate">${kw}</span>
+            <span class="text-[9px] font-black text-slate-600">${perc}%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1">
+            <div class="bg-slate-400 h-1 rounded-full" style="width:${perc}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (!canvas) return;
+
+  const entidades = getEntitiesForBreakdown(data);
+  const multiEntidade = entidades.length > 1;
+  const top5Keywords = sortedGlobal.slice(0, 5).map(x => x[0]);
+
+  destroyChart('kwTop');
+
+  // multi-entidade => 1 dataset por entidade
+  if (multiEntidade) {
+    const datasets = entidades.map(ent => {
+      const cor = colorForEntity(ent, 0.45);
+      const values = top5Keywords.map(kw =>
+        data.filter(r => getEntidade(r) === ent && getKeyword(r) === kw).length
+      );
+
+      return {
+        label: ent,
+        data: values,
+        backgroundColor: cor.bg,
+        borderColor: cor.border,
+        borderWidth: 1,
+        borderRadius: 10
+      };
+    });
+
+    charts.kwTop = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: top5Keywords, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 450 },
+        interaction: { mode: 'point', intersect: true },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } } },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label;
+              }
+            }
+          },
+          datalabels: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+
     return;
   }
 
-  const topByYear = years.map(y => {
-    const entries = Object.entries(byYear[y]).sort((a, b) => b[1] - a[1]);
-    return { ano: y, keyword: entries[0][0], count: entries[0][1] };
+  // 1 entidade => por ano
+  const anosPresentes = unique(
+    data.map(parseYear).filter(y => y && (selectedYears.length === 0 || selectedYears.includes(y)))
+  ).sort((a, b) => a - b);
+
+  // Paleta de cores distintas para anos
+  const paletaAnosCores = [
+    { bg: 'rgba(59, 130, 246, 0.45)', border: 'rgb(59, 130, 246)' },      // azul
+    { bg: 'rgba(34, 197, 94, 0.45)', border: 'rgb(34, 197, 94)' },        // verde
+    { bg: 'rgba(239, 68, 68, 0.45)', border: 'rgb(239, 68, 68)' },        // vermelho
+    { bg: 'rgba(249, 115, 22, 0.45)', border: 'rgb(249, 115, 22)' },      // laranja
+    { bg: 'rgba(168, 85, 247, 0.45)', border: 'rgb(168, 85, 247)' },      // roxo
+    { bg: 'rgba(14, 165, 233, 0.45)', border: 'rgb(14, 165, 233)' },      // ciano
+    { bg: 'rgba(236, 72, 153, 0.45)', border: 'rgb(236, 72, 153)' },      // rosa
+    { bg: 'rgba(107, 114, 128, 0.45)', border: 'rgb(107, 114, 128)' }     // cinzento
+  ];
+
+  const datasets = anosPresentes.map((ano, idx) => {
+    const cor = paletaAnosCores[idx % paletaAnosCores.length];
+    const yearCounts = top5Keywords.map(kw =>
+      data.filter(r => parseYear(r) === ano && getKeyword(r) === kw).length
+    );
+
+    return {
+      label: String(ano),
+      data: yearCounts,
+      backgroundColor: cor.bg,
+      borderColor: cor.border,
+      borderWidth: 1,
+      borderRadius: 10
+    };
   });
 
-  container.innerHTML = topByYear.map(item => `
-    <div class="animate-fade p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-green-300 transition-all">
-      <div class="flex justify-between items-start mb-2">
-        <div>
-          <p class="text-[11px] font-bold text-slate-400 uppercase mb-1">Ano ${item.ano}</p>
-          <p class="text-lg font-black text-slate-800">${item.keyword}</p>
-        </div>
-        <div class="text-right">
-          <p class="text-2xl font-black text-green-600">${item.count}</p>
-          <p class="text-[9px] text-slate-400 font-bold">registos</p>
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function renderTempoResolucaoChart(data) {
-  const tempos = data.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
-
-  if (tempos.length === 0) {
-    $('tempoMedio').innerText = '-';
-    $('tempoMaximo').innerText = '-';
-    $('tempoMinimo').innerText = '-';
-    $('tempoDesvio').innerText = '-';
-
-    destroyChart('tempoResolucao');
-    return;
-  }
-
-  const media = tempos.reduce((a, b) => a + b, 0) / tempos.length;
-  const maximo = Math.max(...tempos);
-  const minimo = Math.min(...tempos);
-  const variancia = tempos.reduce((sum, t) => sum + Math.pow(t - media, 2), 0) / tempos.length;
-  const desvio = Math.sqrt(variancia);
-
-  $('tempoMedio').innerText = Math.round(media);
-  $('tempoMaximo').innerText = maximo;
-  $('tempoMinimo').innerText = minimo;
-  $('tempoDesvio').innerText = desvio.toFixed(1);
-
-  const binSize = 10;
-  const maxBin = Math.ceil(maximo / binSize) * binSize;
-  const bins = {};
-  for (let i = 0; i <= maxBin; i += binSize) bins[`${i}-${i + binSize}min`] = 0;
-
-  tempos.forEach(t => {
-    const b = Math.floor(t / binSize) * binSize;
-    const label = `${b}-${b + binSize}min`;
-    bins[label] = (bins[label] || 0) + 1;
-  });
-
-  destroyChart('tempoResolucao');
-
-  charts.tempoResolucao = new Chart($('tempoResolucaoChart'), {
+  charts.kwTop = new Chart(canvas, {
     type: 'bar',
-    data: {
-      labels: Object.keys(bins),
-      datasets: [{
-        label: 'Quantidade de RNCs',
-        data: Object.values(bins),
-        borderRadius: 6
-      }]
-    },
+    data: { labels: top5Keywords, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 450 },
+      interaction: { mode: 'point', intersect: true },
       plugins: {
-        legend: { display: true, position: 'top' },
+        legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } } },
+        tooltip: {
+          enabled: true,
+          callbacks: {
+            label: function(context) {
+              return context.dataset.label;
+            }
+          }
+        },
         datalabels: { display: false }
       },
       scales: {
         y: { beginAtZero: true, ticks: { stepSize: 1 } },
-        x: { title: { display: true, text: 'Tempo Previsto de Resolução (minutos)' } }
+        x: { grid: { display: false } }
       }
     }
   });
 }
 
+// 2.5) Top Keyword por Ano — layout largo (não cresce em altura à toa)
+function renderTopKeywordByYear(data) {
+  const container = $('topKeywordByYearContainer');
+  if (!container) return;
+
+  if (!data || data.length === 0) {
+    container.innerHTML = `<p class="text-slate-400 text-sm text-center py-6">Sem dados</p>`;
+    return;
+  }
+
+  const years = unique(data.map(parseYear).filter(Boolean)).sort((a, b) => b - a);
+  const entidades = getEntitiesForBreakdown(data);
+  const multiEntidade = entidades.length > 1;
+
+  function topKeywordFor(subset) {
+    const counts = {};
+    subset.forEach(r => {
+      const kw = getKeyword(r);
+      if (!kw) return;
+      counts[kw] = (counts[kw] || 0) + 1;
+    });
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return sorted.length ? { kw: sorted[0][0], count: sorted[0][1] } : { kw: '-', count: 0 };
+  }
+
+  // 1 entidade => cards por ano (grid largo)
+  if (!multiEntidade) {
+    const rows = years.map(y => {
+      const subset = data.filter(r => parseYear(r) === y);
+      const t = topKeywordFor(subset);
+
+      return `
+        <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-black text-slate-700">${y}</p>
+            <p class="text-[10px] font-bold text-slate-400">${t.count}</p>
+          </div>
+          <p class="mt-2 text-sm font-black text-slate-800 truncate">${t.kw}</p>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">${rows}</div>`;
+    return;
+  }
+
+  // multi-entidade => blocos por ano, dentro grid por entidades (ordenadas por número de registos)
+  const blocks = years.map(y => {
+    const entidadesOrdenadas = entidades
+      .map(ent => {
+        const subset = data.filter(r => parseYear(r) === y && getEntidade(r) === ent);
+        return { ent, count: subset.length };
+      })
+      .sort((a, b) => b.count - a.count)
+      .map(item => item.ent);
+
+    const perEnt = entidadesOrdenadas.map(ent => {
+      const subset = data.filter(r => parseYear(r) === y && getEntidade(r) === ent);
+      const t = topKeywordFor(subset);
+      const cor = colorForEntity(ent, 0.12);
+
+      return `
+        <div class="p-3 rounded-2xl border border-slate-200 bg-white" style="border-left:6px solid ${cor.border}">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-black text-slate-700 truncate">${ent}</p>
+            <p class="text-[10px] font-bold text-slate-400">${t.count}</p>
+          </div>
+          <p class="mt-1 text-[12px] font-black text-slate-900 truncate">${t.kw}</p>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="p-4 rounded-3xl border border-slate-200 bg-slate-50">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-[12px] font-black text-slate-800">Ano ${y}</p>
+          <p class="text-[10px] font-bold text-slate-400">${entidades.length} entidades</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          ${perEnt}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `<div class="space-y-4">${blocks}</div>`;
+}
+
+// 3) Tempo Previsto de Resolução (min) — histograma
+function renderTempoResolucaoChart(data) {
+  const canvas = $('tempoResolucaoChart');
+  const statsEl = $('tempoResolucaoStats');
+  if (!canvas) return;
+
+  const entidades = getEntitiesForBreakdown(data);
+  const multiEntidade = entidades.length > 1;
+
+  // recolhe tempos por entidade
+  const temposPorEnt = {};
+  entidades.forEach(e => temposPorEnt[e] = []);
+
+  data.forEach(r => {
+    const ent = getEntidade(r);
+    const t = getTempoPrevisto(r);
+    if (!ent || !Number.isFinite(t) || t < 0) return;
+    if (!temposPorEnt[ent]) temposPorEnt[ent] = [];
+    temposPorEnt[ent].push(t);
+  });
+
+  const allTempos = Object.values(temposPorEnt).flat();
+
+  // sem dados
+  if (!allTempos.length) {
+    destroyChart('tempoResolucao');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="bg-slate-50 p-4 rounded-xl">
+          <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Médio (min)</p>
+          <p class="text-2xl font-black text-teal-600" id="tempoMedio">-</p>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-xl">
+          <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Máximo (min)</p>
+          <p class="text-2xl font-black text-orange-600" id="tempoMaximo">-</p>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-xl">
+          <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Mínimo (min)</p>
+          <p class="text-2xl font-black text-green-600" id="tempoMinimo">-</p>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-xl">
+          <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Desvio Padrão</p>
+          <p class="text-2xl font-black text-blue-600" id="tempoDesvio">-</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  // bins customizados: 0-20, 20-40, 40+
+  const labels = ['0-20min', '20-40min', '40+min'];
+
+  const getBinIndex = (tempo) => {
+    if (tempo < 20) return 0;
+    if (tempo < 40) return 1;
+    return 2;
+  };
+
+  const datasets = entidades.map(ent => {
+    const tempos = temposPorEnt[ent] || [];
+    const bins = Array(labels.length).fill(0);
+
+    tempos.forEach(t => {
+      const idx = getBinIndex(t);
+      bins[idx] += 1;
+    });
+
+    const cor = colorForEntity(ent, 0.35);
+
+    return {
+      label: ent,
+      data: bins,
+      backgroundColor: cor.bg,
+      borderColor: cor.border,
+      borderWidth: 1,
+      borderRadius: 8
+    };
+  });
+
+  destroyChart('tempoResolucao');
+
+  charts.tempoResolucao = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: multiEntidade ? datasets : [datasets[0]] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 450 },
+      interaction: { mode: 'point', intersect: true },
+      plugins: {
+        legend: multiEntidade
+          ? { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', font: { weight: 'bold' } } }
+          : { display: false },
+        tooltip: {
+          enabled: true,
+          callbacks: {
+            label: function(context) {
+              return context.dataset.label;
+            }
+          }
+        },
+        datalabels: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { title: { display: true, text: 'Tempo Previsto de Resolução (minutos)' }, grid: { display: false } }
+      }
+    }
+  });
+
+  // ===== Estatísticas =====
+  if (!statsEl) return;
+
+  if (!multiEntidade) {
+    const tempos = temposPorEnt[entidades[0]] || [];
+    const media = tempos.reduce((a, b) => a + b, 0) / tempos.length;
+    const max = Math.max(...tempos);
+    const min = Math.min(...tempos);
+    const variancia = tempos.reduce((s, t) => s + Math.pow(t - media, 2), 0) / tempos.length;
+    const desvio = Math.sqrt(variancia);
+
+    statsEl.innerHTML = `
+      <div class="bg-slate-50 p-4 rounded-xl">
+        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Médio (min)</p>
+        <p class="text-2xl font-black text-teal-600" id="tempoMedio">${Math.round(media)}</p>
+      </div>
+      <div class="bg-slate-50 p-4 rounded-xl">
+        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Máximo (min)</p>
+        <p class="text-2xl font-black text-orange-600" id="tempoMaximo">${max}</p>
+      </div>
+      <div class="bg-slate-50 p-4 rounded-xl">
+        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Tempo Mínimo (min)</p>
+        <p class="text-2xl font-black text-green-600" id="tempoMinimo">${min}</p>
+      </div>
+      <div class="bg-slate-50 p-4 rounded-xl">
+        <p class="text-slate-400 text-[9px] font-bold uppercase mb-2">Desvio Padrão</p>
+        <p class="text-2xl font-black text-blue-600" id="tempoDesvio">${desvio.toFixed(1)}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const cards = entidades.map(ent => {
+    const tempos = temposPorEnt[ent] || [];
+    const cor = colorForEntity(ent, 0.12);
+
+    if (!tempos.length) {
+      return `
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200" style="border-left:6px solid ${cor.border}">
+          <p class="text-[11px] font-black text-slate-700 mb-2">${ent}</p>
+          <p class="text-slate-400 text-sm">Sem dados de tempo</p>
+        </div>
+      `;
+    }
+
+    const media = tempos.reduce((a, b) => a + b, 0) / tempos.length;
+    const max = Math.max(...tempos);
+    const min = Math.min(...tempos);
+    const variancia = tempos.reduce((s, t) => s + Math.pow(t - media, 2), 0) / tempos.length;
+    const desvio = Math.sqrt(variancia);
+
+    return `
+      <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200" style="border-left:6px solid ${cor.border}">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-[11px] font-black text-slate-700">${ent}</p>
+          <p class="text-[10px] font-bold text-slate-400">${tempos.length} registos</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white p-3 rounded-xl border border-slate-200">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-1">Médio (min)</p>
+            <p class="text-xl font-black text-teal-600">${Math.round(media)}</p>
+          </div>
+          <div class="bg-white p-3 rounded-xl border border-slate-200">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-1">Máximo</p>
+            <p class="text-xl font-black text-orange-600">${max}</p>
+          </div>
+          <div class="bg-white p-3 rounded-xl border border-slate-200">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-1">Mínimo</p>
+            <p class="text-xl font-black text-green-600">${min}</p>
+          </div>
+          <div class="bg-white p-3 rounded-xl border border-slate-200">
+            <p class="text-slate-400 text-[9px] font-bold uppercase mb-1">Desvio</p>
+            <p class="text-xl font-black text-blue-600">${desvio.toFixed(1)}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  statsEl.innerHTML = `<div class="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">${cards}</div>`;
+}
+
 /* ========= PDF EXPORT ========= */
+/* ========= PDF EXPORT (FIX: centrado, sem cortes, 1 página, auto-fit) ========= */
 
 function safeCanvasDataUrl(canvasId) {
   const c = document.getElementById(canvasId);
   if (!c || typeof c.toDataURL !== 'function') return '';
   try {
-    return c.toDataURL('image/png', 1.0);
+    return c.toDataURL('image/png'); // PNG = nítido; quality não aplica
   } catch (e) {
     console.warn(`Falha ao exportar canvas ${canvasId}:`, e);
     return '';
@@ -724,169 +1062,459 @@ function safeCanvasDataUrl(canvasId) {
 
 function kpiBox(title, value, color) {
   return `
-    <div style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; text-align:center;">
+    <div style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; text-align:center; box-sizing:border-box;">
       <p style="margin:0; font-size:8px; color:#94a3b8; font-weight:700; text-transform:uppercase;">${title}</p>
       <p style="margin:4px 0 0 0; font-size:22px; font-weight:800; color:${color};">${value}</p>
     </div>
   `;
 }
 
-function imgCard(title, imgDataUrl) {
+function imgCard(title, imgDataUrl, chartHeightPx = 120) {
   if (!imgDataUrl) {
     return `
-      <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px;">
-        <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">${title}</h3>
+      <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; box-sizing:border-box;">
+        <h3 style="margin:0 0 6px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">${title}</h3>
         <p style="margin:0; font-size:10px; color:#94a3b8;">(Gráfico indisponível)</p>
       </div>
     `;
   }
 
   return `
-    <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px;">
-      <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">${title}</h3>
-      <img src="${imgDataUrl}" style="width:100%; height:auto; object-fit:contain;">
+    <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; box-sizing:border-box;">
+      <h3 style="margin:0 0 6px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">${title}</h3>
+      <div style="height:${chartHeightPx}px; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+        <img src="${imgDataUrl}" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain;">
+      </div>
     </div>
   `;
 }
 
-function exportarRelatorio() {
-  // usa os mesmos filtros atuais
-  const filtered = filterData();
+// util: espera dois frames (já tens no teu ficheiro, mas deixo fallback)
+async function waitTwoFramesSafe() {
+  if (typeof waitTwoFrames === 'function') return await waitTwoFrames();
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
 
-  // textos de filtros
-  const anosTexto = selectedYears.length ? selectedYears.slice().sort((a,b)=>a-b).join(', ') : 'Todos';
-  const mesesTexto = selectedMonths.length
-    ? selectedMonths.slice().sort((a,b)=>a-b).map(m => MESES_FULL[m - 1]).join(', ')
-    : 'Todos';
+async function exportarRelatorio() {
+  const btn = $('exportPdfBtn');
+  if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
 
-  const entidadeTexto = (sessionInfo?.filter && sessionInfo.filter !== 'all')
-    ? sessionInfo.filter
-    : (selectedEntidades.length ? selectedEntidades.join(', ') : 'Todas');
+  // restaurar DPR dos charts no fim
+  let prevDPR = null;
 
-  const periodoTexto = `${mesesTexto} (${anosTexto})`;
+  // Constantes de página (A4 em mm)
+  const PAGE_W_MM = 210;
+  const PAGE_H_MM = 297;
+  const MARGIN_MM = 8;                  // margem real do PDF
+  const CONTENT_W_MM = PAGE_W_MM - (2 * MARGIN_MM);
+  const CONTENT_H_MM = PAGE_H_MM - (2 * MARGIN_MM);
 
-  // KPIs
-  const abertas = filtered.filter(d => getStatus(d) === 'aberto').length;
-  const fechadas = filtered.filter(d => getStatus(d) === 'fechado').length;
-  const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
-  const entidadesUnicas = unique(filtered.map(getEntidade).filter(Boolean)).length;
-
-  // Tempo previsto stats
-  const tempos = filtered.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
-  const tempoMedio = tempos.length ? Math.round(tempos.reduce((a,b)=>a+b,0)/tempos.length) : '-';
-  const tempoMax = tempos.length ? Math.max(...tempos) : '-';
-  const tempoMin = tempos.length ? Math.min(...tempos) : '-';
-  const tempoDesvio = (() => {
-    if (!tempos.length) return '-';
-    const m = tempos.reduce((a,b)=>a+b,0)/tempos.length;
-    const v = tempos.reduce((s,t)=>s+Math.pow(t-m,2),0)/tempos.length;
-    return Math.sqrt(v).toFixed(1);
-  })();
-
-  // Capturar imagens dos charts (já com multi-ano e multi-keyword)
-  const trendChartImg = safeCanvasDataUrl('lineTrendChart');
-  const yearChartImg = safeCanvasDataUrl('yearComparisonChart');
-  const pieChartImg = safeCanvasDataUrl('rncPieChart');
-  const topKeywordsImg = safeCanvasDataUrl('topKeywordsChart');
-  const tempoResolucaoImg = safeCanvasDataUrl('tempoResolucaoChart');
-
-  // Conteúdo HTML do PDF
-  const html = `
-    <div style="font-family: Arial, sans-serif; background:#fff; color:#0f172a; padding: 14px;">
-      <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 3px solid #0f172a;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-          <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height: 32px;">
-        </div>
-        <h1 style="margin:0; font-size: 20px; font-weight: 700;">Dashboard de Qualidade</h1>
-        <p style="margin:2px 0 0 0; font-size: 11px; color:#64748b;">Sistema de Análise de Não Conformidades</p>
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px; font-size:10px;">
-        <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #3b82f6;">
-          <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Entidade</p>
-          <p style="margin:3px 0 0 0; font-weight:700; font-size:11px; line-height:1.2;">${entidadeTexto}</p>
-        </div>
-        <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #8b5cf6;">
-          <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Período</p>
-          <p style="margin:3px 0 0 0; font-weight:700; font-size:9px; line-height:1.3;">${periodoTexto}</p>
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:10px;">
-        ${kpiBox('Total Registos', filtered.length, '#0f172a')}
-        ${kpiBox('Entidades Ativas', entidadesUnicas, '#2563eb')}
-        ${kpiBox('RNCs em Aberto', abertas, '#ef4444')}
-        ${kpiBox('Taxa de Resolução', taxa + '%', '#16a34a')}
-      </div>
-
-      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-bottom:10px;">
-        ${imgCard('Tendência Mensal (por Ano)', trendChartImg)}
-        ${imgCard('Status Geral RNCs', pieChartImg)}
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-        ${imgCard('Total RNCs por Ano', yearChartImg)}
-        ${imgCard('Top 5 Keywords (por Ano)', topKeywordsImg)}
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-        ${imgCard('Tempo Previsto de Resolução', tempoResolucaoImg)}
-        <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px;">
-          <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
-            Estatísticas de Resolução
-          </h3>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-            ${kpiBox('Tempo Médio (min)', tempoMedio, '#0f766e')}
-            ${kpiBox('Tempo Máximo (min)', tempoMax, '#ea580c')}
-            ${kpiBox('Tempo Mínimo (min)', tempoMin, '#16a34a')}
-            ${kpiBox('Desvio Padrão', tempoDesvio, '#2563eb')}
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:10px; display:flex; justify-content:flex-end;">
-        <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height: 22px; opacity:0.75;">
-      </div>
-    </div>
-  `;
-
-  const opt = {
-    margin: 0.35,
-    filename: `Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  // limites de altura dos gráficos (ajusta se quiseres)
+  const LIMITS = {
+    row1: { min: 80,  max: 150 },  // Tendência + Status
+    row2: { min: 85,  max: 160 },  // Ano + Top Keywords
+    row3: { min: 85,  max: 160 }   // Tempo Previsto
   };
 
-  // pequeno delay para garantir que o Chart.js terminou de desenhar
-  setTimeout(() => {
-    html2pdf().set(opt).from(html).save();
-  }, 250);
+  try {
+    const filtered = filterData();
+
+    // 1) congela animações do Chart para export consistente
+    Object.values(charts || {}).forEach(ch => { try { ch?.update?.('none'); } catch {} });
+    await waitTwoFramesSafe();
+
+    // 2) aumenta definição dos gráficos só durante o export
+    if (window.Chart?.defaults) {
+      prevDPR = Chart.defaults.devicePixelRatio;
+      Chart.defaults.devicePixelRatio = 3;
+
+      Object.values(charts || {}).forEach(ch => {
+        try { ch?.resize?.(); ch?.update?.('none'); } catch {}
+      });
+      await waitTwoFramesSafe();
+    }
+
+    // 3) textos / KPIs
+    const anosTexto = selectedYears.length ? selectedYears.slice().sort((a,b)=>a-b).join(', ') : 'Todos';
+    const mesesTexto = selectedMonths.length
+      ? selectedMonths.slice().sort((a,b)=>a-b).map(m => MESES_FULL[m - 1]).join(', ')
+      : 'Todos';
+
+    const entidadeTexto = (sessionInfo?.filter && sessionInfo.filter !== 'all')
+      ? sessionInfo.filter
+      : (selectedEntidades.length ? selectedEntidades.join(', ') : 'Todas');
+
+    const periodoTexto = `${mesesTexto} (${anosTexto})`;
+
+    const abertas = filtered.filter(d => getStatus(d) === 'aberto').length;
+    const fechadas = filtered.filter(d => getStatus(d) === 'fechado').length;
+    const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
+    const entidadesUnicas = unique(filtered.map(getEntidade).filter(Boolean)).length;
+
+    const tempos = filtered.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
+    const tempoMedio = tempos.length ? Math.round(tempos.reduce((a,b)=>a+b,0)/tempos.length) : '-';
+    const tempoMax = tempos.length ? Math.max(...tempos) : '-';
+    const tempoMin = tempos.length ? Math.min(...tempos) : '-';
+    const tempoDesvio = (() => {
+      if (!tempos.length) return '-';
+      const m = tempos.reduce((a,b)=>a+b,0)/tempos.length;
+      const v = tempos.reduce((s,t)=>s+Math.pow(t-m,2),0)/tempos.length;
+      return Math.sqrt(v).toFixed(1);
+    })();
+
+    // 4) imagens dos canvas (já em alta definição)
+    const trendChartImg = safeCanvasDataUrl('lineTrendChart');
+    const yearChartImg = safeCanvasDataUrl('yearComparisonChart');
+    const pieChartImg = safeCanvasDataUrl('rncPieChart');
+    const topKeywordsImg = safeCanvasDataUrl('topKeywordsChart');
+    const tempoResolucaoImg = safeCanvasDataUrl('tempoResolucaoChart');
+
+    // 5) stage: DENTRO do viewport (evita cortes), mas invisível
+    const stage = document.createElement('div');
+    stage.id = 'pdfStage';
+    stage.style.position = 'fixed';
+    stage.style.left = '0';
+    stage.style.top = '0';
+    stage.style.width = '100vw';
+    stage.style.height = '100vh';
+    stage.style.display = 'flex';
+    stage.style.justifyContent = 'center';
+    stage.style.alignItems = 'flex-start';
+    stage.style.background = '#ffffff';
+    stage.style.pointerEvents = 'none';
+    stage.style.visibility = 'hidden'; // ✅ invisível mas renderiza
+    stage.style.zIndex = '2147483647';
+    document.body.appendChild(stage);
+
+    // wrapper A4 (controla layout) + conteúdo centrado
+    const wrapper = document.createElement('div');
+    wrapper.style.width = `${PAGE_W_MM}mm`;
+    wrapper.style.boxSizing = 'border-box';
+    wrapper.style.background = '#fff';
+    wrapper.style.padding = `${MARGIN_MM}mm`;
+    stage.appendChild(wrapper);
+
+    // alturas iniciais (vamos ajustar com auto-fit)
+    let hRow1 = 115;
+    let hRow2 = 125;
+    let hRow3 = 125;
+
+    const buildHtml = () => `
+      <div id="pdfRoot"
+           style="
+             width:${CONTENT_W_MM}mm;
+             box-sizing:border-box;
+             font-family: Arial, sans-serif;
+             background:#fff;
+             color:#0f172a;
+           ">
+
+        <div style="margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height:32px;">
+          </div>
+          <h1 style="margin:0; font-size:18px; font-weight:700;">Dashboard de Qualidade</h1>
+          <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Sistema de Análise de Não Conformidades</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px; font-size:10px;">
+          <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #3b82f6;">
+            <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Entidade</p>
+            <p style="margin:3px 0 0 0; font-weight:700; font-size:11px; line-height:1.2;">${entidadeTexto}</p>
+          </div>
+          <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #8b5cf6;">
+            <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Período</p>
+            <p style="margin:3px 0 0 0; font-weight:700; font-size:9px; line-height:1.3;">${periodoTexto}</p>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:8px;">
+          ${kpiBox('Total Registos', filtered.length, '#0f172a')}
+          ${kpiBox('Entidades Ativas', entidadesUnicas, '#2563eb')}
+          ${kpiBox('RNCs em Aberto', abertas, '#ef4444')}
+          ${kpiBox('Taxa de Resolução', taxa + '%', '#16a34a')}
+        </div>
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-bottom:8px;">
+          ${imgCard('Tendência Mensal (por Ano)', trendChartImg, hRow1)}
+          ${imgCard('Status Geral RNCs', pieChartImg, hRow1)}
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+          ${imgCard('Total RNCs por Ano', yearChartImg, hRow2)}
+          ${imgCard('Top 5 Keywords', topKeywordsImg, hRow2)}
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+          ${imgCard('Tempo Previsto de Resolução', tempoResolucaoImg, hRow3)}
+          <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; box-sizing:border-box;">
+            <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+              Estatísticas de Resolução
+            </h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+              ${kpiBox('Tempo Médio (min)', tempoMedio, '#0f766e')}
+              ${kpiBox('Tempo Máximo (min)', tempoMax, '#ea580c')}
+              ${kpiBox('Tempo Mínimo (min)', tempoMin, '#16a34a')}
+              ${kpiBox('Desvio Padrão', tempoDesvio, '#2563eb')}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:6px; display:flex; justify-content:flex-end;">
+          <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
+        </div>
+      </div>
+    `;
+
+    // inject inicial
+    wrapper.innerHTML = buildHtml();
+    const root = wrapper.querySelector('#pdfRoot');
+
+    // espera fonts/imagens
+    if (document.fonts?.ready) await document.fonts.ready;
+
+    const imgs = Array.from(wrapper.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+    }));
+
+    await waitTwoFramesSafe();
+
+    // mm->px real baseado na largura renderizada (evita suposições de 96dpi)
+    const pxPerMm = wrapper.getBoundingClientRect().width / PAGE_W_MM;
+    const targetHeightPx = CONTENT_H_MM * pxPerMm;
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+    // === AUTO-FIT bidireccional: encolhe se excede; aumenta se sobra espaço ===
+    for (let i = 0; i < 10; i++) {
+      const currentH = root.scrollHeight;
+      const diff = targetHeightPx - currentH;
+
+      // tolerância ~ 6px
+      if (Math.abs(diff) < 6) break;
+
+      // distribuir ajuste pelos 3 blocos (mais peso em row1)
+      const step = diff * 0.35; // suaviza para não oscilar
+      hRow1 = clamp(Math.round(hRow1 + step * 0.45), LIMITS.row1.min, LIMITS.row1.max);
+      hRow2 = clamp(Math.round(hRow2 + step * 0.30), LIMITS.row2.min, LIMITS.row2.max);
+      hRow3 = clamp(Math.round(hRow3 + step * 0.25), LIMITS.row3.min, LIMITS.row3.max);
+
+      wrapper.innerHTML = buildHtml();
+      await waitTwoFramesSafe();
+    }
+
+    // 6) Export final (unidades em mm -> menos surpresas)
+    const opt = {
+      margin: [MARGIN_MM, MARGIN_MM, MARGIN_MM, MARGIN_MM],
+      filename: `Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`,
+      image: { type: 'png' },
+      html2canvas: {
+        scale: 3, // nítido
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: wrapper.scrollWidth,
+        windowHeight: wrapper.scrollHeight
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      // força 1 página: se algo ultrapassar, o teu auto-fit deve evitar
+      pagebreak: { mode: ['avoid-all'] }
+    };
+
+    await html2pdf().set(opt).from(wrapper.querySelector('#pdfRoot')).save();
+
+    // cleanup
+    document.body.removeChild(stage);
+
+  } catch (e) {
+    console.error(e);
+    alert(`Erro ao exportar PDF: ${e.message}`);
+  } finally {
+    // restaura DPR
+    if (prevDPR !== null && window.Chart?.defaults) {
+      Chart.defaults.devicePixelRatio = prevDPR;
+      Object.values(charts || {}).forEach(ch => {
+        try { ch?.resize?.(); ch?.update?.('none'); } catch {}
+      });
+    }
+
+    if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
+  }
+}
+
+
+
+
+/* ========= MODAL / UI ========= */
+
+// Função para atualizar cor do botão de aplicar (apenas 1x, removi duplicado)
+function updateButtonColor() {
+  const closeBtn = $('closeEntidadeModal');
+  if (!closeBtn) return;
+
+  if (entidadesSelecionadasTemp && entidadesSelecionadasTemp.length > 0) {
+    closeBtn.style.backgroundColor = 'rgb(34, 197, 94)'; // verde
+    closeBtn.style.cursor = 'pointer';
+  } else {
+    closeBtn.style.backgroundColor = 'rgb(71, 85, 105)'; // cinzento
+    closeBtn.style.cursor = 'pointer';
+  }
+}
+
+/* ========= MODAL ENTIDADES ========= */
+
+function openEntidadeModal() {
+  entidadesSelecionadasTemp = selectedEntidades.slice();
+
+  const search = $('entidadeSearch');
+  if (search) search.value = '';
+
+  renderEntidadeModalList(entidadesDisponiveis, entidadesSelecionadasTemp);
+  $('entidadeModal')?.classList.remove('hidden');
+}
+
+function closeEntidadeModal(apply = true) {
+  if (apply) {
+    selectedEntidades = entidadesSelecionadasTemp.slice();
+    renderEntidadeTags();
+    initFilters(); // ✅ garante coerência dos filtros/entidades disponíveis
+    updateDashboard();
+  }
+  $('entidadeModal')?.classList.add('hidden');
+}
+
+function renderEntidadeModalList(lista, selecionadas) {
+  const boxContainer = $('entidadeCheckboxes');
+  if (!boxContainer) return;
+
+  const selectedLower = (selecionadas || []).map(e => e.toLowerCase());
+  boxContainer.innerHTML = '';
+
+  if (!lista || lista.length === 0) {
+    boxContainer.innerHTML = `<p class="text-slate-400 text-sm text-center py-8">Sem entidades</p>`;
+    updateButtonColor();
+    return;
+  }
+
+  lista.forEach(ent => {
+    const wrapper = document.createElement('label');
+    wrapper.className = "flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 cursor-pointer select-none border border-transparent hover:border-slate-200 transition";
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = ent;
+    cb.className = "accent-blue-600";
+    cb.checked = selectedLower.includes(ent.toLowerCase());
+
+    cb.addEventListener('change', () => {
+      const val = cb.value;
+      const has = entidadesSelecionadasTemp.some(x => x.toLowerCase() === val.toLowerCase());
+
+      if (cb.checked && !has) entidadesSelecionadasTemp.push(val);
+      if (!cb.checked && has) entidadesSelecionadasTemp = entidadesSelecionadasTemp.filter(x => x.toLowerCase() !== val.toLowerCase());
+
+      updateButtonColor();
+    });
+
+    const span = document.createElement('span');
+    span.className = "text-slate-800 text-[12px] font-bold";
+    span.innerText = ent;
+
+    wrapper.appendChild(cb);
+    wrapper.appendChild(span);
+    boxContainer.appendChild(wrapper);
+  });
+
+  updateButtonColor();
+}
+
+function renderEntidadeTags() {
+  const tagsEl = $('entidadeTags');
+  const emptyEl = $('entidadeTagsEmpty');
+  if (!tagsEl || !emptyEl) return;
+
+  tagsEl.innerHTML = '';
+
+  if (!selectedEntidades || selectedEntidades.length === 0) {
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+
+  emptyEl.classList.add('hidden');
+
+  selectedEntidades.forEach(ent => {
+    const tag = document.createElement('div');
+    tag.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-700 text-white text-[11px] font-black";
+
+    const name = document.createElement('span');
+    name.innerText = ent;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = "w-5 h-5 rounded-full bg-slate-600 hover:bg-red-600 transition flex items-center justify-center text-[12px] leading-none";
+    btn.innerText = "×";
+    btn.title = "Remover";
+
+    btn.addEventListener('click', () => {
+      selectedEntidades = selectedEntidades.filter(x => x.toLowerCase() !== ent.toLowerCase());
+      renderEntidadeTags();
+      initFilters(); // ✅ mantém lista de entidades coerente com o período
+      updateDashboard();
+    });
+
+    tag.appendChild(name);
+    tag.appendChild(btn);
+    tagsEl.appendChild(tag);
+  });
 }
 
 /* ========= EVENTS ========= */
 
 window.addEventListener('DOMContentLoaded', () => {
-  $('loginBtn').addEventListener('click', handleLogin);
-  $('refreshDataBtn').addEventListener('click', refreshData);
-  $('exportPdfBtn').addEventListener('click', exportarRelatorio);
-  $('logoutBtn').addEventListener('click', () => location.reload());
+  $('loginBtn')?.addEventListener('click', handleLogin);
+  $('refreshDataBtn')?.addEventListener('click', refreshData);
+  $('exportPdfBtn')?.addEventListener('click', exportarRelatorio);
+  $('logoutBtn')?.addEventListener('click', () => location.reload());
 
   // enter no login
-  $('passInput').addEventListener('keydown', (e) => {
+  $('passInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleLogin();
   });
 
-  // Toggle da secção Entidade (abre só ao clicar)
-  const entToggle = $('entidadeToggle');
-  const entContent = $('entidadeContent');
-  const entChevron = $('entidadeChevron');
+  // Modal Entidades (admin)
+  $('openEntidadeModal')?.addEventListener('click', () => openEntidadeModal());
+  $('closeEntidadeModal')?.addEventListener('click', () => closeEntidadeModal(true));
+  $('entidadeModalOverlay')?.addEventListener('click', () => closeEntidadeModal(true));
 
-  if (entToggle && entContent && entChevron) {
-    entToggle.addEventListener('click', () => {
-      const aberto = !entContent.classList.contains('hidden');
-      entContent.classList.toggle('hidden', aberto);
-      entChevron.style.transform = aberto ? 'rotate(0deg)' : 'rotate(180deg)';
-    });
-  }
+  // Botões do modal
+  $('entSelectAll')?.addEventListener('click', () => {
+    entidadesSelecionadasTemp = entidadesDisponiveis.slice();
+    renderEntidadeModalList(entidadesDisponiveis, entidadesSelecionadasTemp);
+  });
+
+  $('entClearAll')?.addEventListener('click', () => {
+    entidadesSelecionadasTemp = [];
+    renderEntidadeModalList(entidadesDisponiveis, entidadesSelecionadasTemp);
+  });
+
+  // Pesquisa dentro do modal
+  $('entidadeSearch')?.addEventListener('input', (e) => {
+    const q = (e.target.value || '').toLowerCase().trim();
+    const filtradas = !q
+      ? entidadesDisponiveis
+      : entidadesDisponiveis.filter(x => x.toLowerCase().includes(q));
+    renderEntidadeModalList(filtradas, entidadesSelecionadasTemp);
+  });
+
+  // ESC fecha modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modal = $('entidadeModal');
+      if (modal && !modal.classList.contains('hidden')) closeEntidadeModal(true);
+    }
+  });
 });

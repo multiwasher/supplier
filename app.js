@@ -418,12 +418,6 @@ function generateInsights(data) {
     return;
   }
 
-  // Se apenas uma entidade está selecionada, não mostrar análises
-  if (selectedEntidades.length === 1) {
-    renderInsights([]);
-    return;
-  }
-
   const insights = [];
 
   // 1) Status & Closure Rate
@@ -538,7 +532,61 @@ function generateInsights(data) {
     });
   }
 
-  // 6) Data Volume
+  // 6) Year-over-Year Comparison
+  if (selectedYears && selectedYears.length > 1) {
+    const dataByYear = {};
+    selectedYears.forEach(year => {
+      const yearData = data.filter(d => parseYear(d) === year);
+      if (yearData.length > 0) {
+        const yearFechadas = yearData.filter(d => getStatus(d) === 'fechado').length;
+        const yearTaxa = Math.round((yearFechadas / yearData.length) * 100);
+        dataByYear[year] = { total: yearData.length, taxa: yearTaxa };
+      }
+    });
+
+    const yearsComDados = Object.keys(dataByYear).map(Number).sort();
+    if (yearsComDados.length > 1) {
+      const anos = yearsComDados.sort((a, b) => b - a); // Descendente: mais recente primeiro
+      const anoMaisRecente = anos[0];
+      const anoAnterior = anos[1];
+
+      const taxaRecente = dataByYear[anoMaisRecente].taxa;
+      const taxaAnterior = dataByYear[anoAnterior].taxa;
+      const variacao = taxaRecente - taxaAnterior;
+      const variacaoPercent = variacao === 0 ? 0 : Math.round((variacao / taxaAnterior) * 100);
+
+      let insightType = 'info';
+      let icon = '📈';
+      let titulo = 'Comparação Entre Anos';
+      let descricao = '';
+
+      if (variacao > 0) {
+        insightType = 'success';
+        icon = '📈';
+        titulo = 'Melhoria Year-over-Year';
+        descricao = `${anoMaisRecente} apresenta taxa de ${taxaRecente}% vs ${taxaAnterior}% em ${anoAnterior}. Melhoria de +${variacaoPercent}%!`;
+      } else if (variacao < 0) {
+        insightType = 'alert';
+        icon = '📉';
+        titulo = 'Redução de Performance';
+        descricao = `${anoMaisRecente} apresenta taxa de ${taxaRecente}% vs ${taxaAnterior}% em ${anoAnterior}. Queda de ${variacaoPercent}%. Atenção necessária.`;
+      } else {
+        insightType = 'info';
+        icon = '➡️';
+        titulo = 'Performance Estável';
+        descricao = `${anoMaisRecente} mantém performance estável em ${taxaRecente}%, igual a ${anoAnterior}.`;
+      }
+
+      insights.push({
+        type: insightType,
+        icon: icon,
+        title: titulo,
+        text: descricao
+      });
+    }
+  }
+
+  // 7) Data Volume
   const entidadesUnicas = unique(data.map(getEntidade).filter(Boolean)).length;
   if (data.length < 5) {
     insights.push({

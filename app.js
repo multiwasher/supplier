@@ -425,26 +425,48 @@ function generateInsights(data) {
   const fechadas = data.filter(d => getStatus(d) === 'fechado').length;
   const taxa = data.length > 0 ? Math.round((fechadas / data.length) * 100) : 0;
 
+  // Comparação entre anos se há múltiplos anos
+  let textoComparacao = '';
+  if (selectedYears && selectedYears.length > 1) {
+    const yearsOrdenados = selectedYears.sort((a, b) => b - a);
+    const anoMaisRecente = yearsOrdenados[0];
+    const anoAnterior = yearsOrdenados[1];
+    
+    const dataRecente = data.filter(d => parseYear(d) === anoMaisRecente);
+    const dataAnterior = data.filter(d => parseYear(d) === anoAnterior);
+    
+    if (dataRecente.length > 0 && dataAnterior.length > 0) {
+      const fechadasRecente = dataRecente.filter(d => getStatus(d) === 'fechado').length;
+      const taxaRecente = Math.round((fechadasRecente / dataRecente.length) * 100);
+      
+      const fechadasAnterior = dataAnterior.filter(d => getStatus(d) === 'fechado').length;
+      const taxaAnterior = Math.round((fechadasAnterior / dataAnterior.length) * 100);
+      
+      const variacao = taxaRecente - taxaAnterior;
+      textoComparacao = ` Em ${anoMaisRecente}: ${taxaRecente}% vs ${taxaAnterior}% em ${anoAnterior} (${variacao > 0 ? '+' : ''}${variacao}pp).`;
+    }
+  }
+
   if (taxa < 50) {
     insights.push({
       type: 'alert',
       icon: '⚠️',
       title: 'Taxa de Resolução Baixa',
-      text: `Apenas ${taxa}% das RNCs foram fechadas. Considere revisar o processo de resolução.`
+      text: `Apenas ${taxa}% das RNCs foram fechadas. Considere revisar o processo de resolução.${textoComparacao}`
     });
   } else if (taxa >= 80) {
     insights.push({
       type: 'success',
       icon: '✅',
       title: 'Excelente Taxa de Resolução',
-      text: `${taxa}% das RNCs foram fechadas. Ótimo desempenho!`
+      text: `${taxa}% das RNCs foram fechadas. Ótimo desempenho!${textoComparacao}`
     });
   } else {
     insights.push({
       type: 'info',
       icon: 'ℹ️',
       title: 'Taxa de Resolução Moderada',
-      text: `${taxa}% das RNCs foram fechadas. Há margem para melhorias.`
+      text: `${taxa}% das RNCs foram fechadas. Há margem para melhorias.${textoComparacao}`
     });
   }
 
@@ -462,19 +484,42 @@ function generateInsights(data) {
   const tempos = data.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
   if (tempos.length > 0) {
     const tempoMedio = Math.round(tempos.reduce((a, b) => a + b, 0) / tempos.length);
+    
+    // Comparação entre anos se há múltiplos anos
+    let tempoComparacao = '';
+    if (selectedYears && selectedYears.length > 1) {
+      const yearsOrdenados = selectedYears.sort((a, b) => b - a);
+      const anoMaisRecente = yearsOrdenados[0];
+      const anoAnterior = yearsOrdenados[1];
+      
+      const dataRecente = data.filter(d => parseYear(d) === anoMaisRecente);
+      const dataAnterior = data.filter(d => parseYear(d) === anoAnterior);
+      
+      const temposRecente = dataRecente.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
+      const temposAnterior = dataAnterior.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
+      
+      if (temposRecente.length > 0 && temposAnterior.length > 0) {
+        const tempoMedioRecente = Math.round(temposRecente.reduce((a, b) => a + b, 0) / temposRecente.length);
+        const tempoMedioAnterior = Math.round(temposAnterior.reduce((a, b) => a + b, 0) / temposAnterior.length);
+        const variacao = tempoMedioRecente - tempoMedioAnterior;
+        const direcao = variacao < 0 ? '✓ Melhorado' : variacao > 0 ? '✗ Piorado' : 'Estável';
+        tempoComparacao = ` ${anoMaisRecente}: ${tempoMedioRecente}min vs ${tempoMedioAnterior}min em ${anoAnterior} (${direcao}).`;
+      }
+    }
+    
     if (tempoMedio > 480) { // > 8 horas
       insights.push({
         type: 'alert',
         icon: '⏱️',
         title: 'Tempo Médio de Resolução Elevado',
-        text: `Tempo médio de ${tempoMedio} minutos (${Math.round(tempoMedio / 60)} horas). Considere otimizar o processo.`
+        text: `Tempo médio de ${tempoMedio} minutos (${Math.round(tempoMedio / 60)} horas). Considere otimizar o processo.${tempoComparacao}`
       });
     } else if (tempoMedio < 120) {
       insights.push({
         type: 'success',
         icon: '⚡',
         title: 'Resolução Rápida',
-        text: `Tempo médio de ${tempoMedio} minutos. Excelente resposta!`
+        text: `Tempo médio de ${tempoMedio} minutos. Excelente resposta!${tempoComparacao}`
       });
     }
   }
@@ -524,11 +569,48 @@ function generateInsights(data) {
 
   if (topKeywords.length > 0) {
     const topKw = topKeywords[0];
+    
+    // Comparação entre anos se há múltiplos anos
+    let keywordComparacao = '';
+    if (selectedYears && selectedYears.length > 1) {
+      const yearsOrdenados = selectedYears.sort((a, b) => b - a);
+      const anoMaisRecente = yearsOrdenados[0];
+      const anoAnterior = yearsOrdenados[1];
+      
+      const dataRecente = data.filter(d => parseYear(d) === anoMaisRecente);
+      const dataAnterior = data.filter(d => parseYear(d) === anoAnterior);
+      
+      const keywordsRecente = dataRecente
+        .map(getKeyword)
+        .filter(Boolean)
+        .reduce((acc, kw) => { acc[kw] = (acc[kw] || 0) + 1; return acc; }, {});
+      
+      const topKeywordRecente = Object.entries(keywordsRecente)
+        .sort((a, b) => b[1] - a[1])[0];
+      
+      const keywordsAnterior = dataAnterior
+        .map(getKeyword)
+        .filter(Boolean)
+        .reduce((acc, kw) => { acc[kw] = (acc[kw] || 0) + 1; return acc; }, {});
+      
+      const topKeywordAnterior = Object.entries(keywordsAnterior)
+        .sort((a, b) => b[1] - a[1])[0];
+      
+      if (topKeywordRecente && topKeywordAnterior) {
+        const mesmoKeyword = topKw[0] === topKeywordRecente[0];
+        if (mesmoKeyword) {
+          keywordComparacao = ` Em ${anoMaisRecente}: ${topKeywordRecente[1]}x vs ${topKeywordAnterior[1]}x em ${anoAnterior}.`;
+        } else {
+          keywordComparacao = ` Em ${anoMaisRecente}: "${topKeywordRecente[0]}" (${topKeywordRecente[1]}x). Mudança face a ${anoAnterior}: "${topKeywordAnterior[0]}" (${topKeywordAnterior[1]}x).`;
+        }
+      }
+    }
+    
     insights.push({
       type: 'info',
       icon: '🏷️',
       title: 'Issue Mais Frequente',
-      text: `"${topKw[0]}" aparece ${topKw[1]}x nos registos. Esta é a questão mais comum.`
+      text: `"${topKw[0]}" aparece ${topKw[1]}x nos registos. Esta é a questão mais comum.${keywordComparacao}`
     });
   }
 

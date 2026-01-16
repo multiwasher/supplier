@@ -418,6 +418,12 @@ function generateInsights(data) {
     return;
   }
 
+  // Se apenas uma entidade está selecionada, não mostrar análises
+  if (selectedEntidades.length === 1) {
+    renderInsights([]);
+    return;
+  }
+
   const insights = [];
 
   // 1) Status & Closure Rate
@@ -540,13 +546,6 @@ function generateInsights(data) {
       icon: 'ℹ️',
       title: 'Dados Limitados',
       text: `Apenas ${data.length} registos encontrados. Mais dados permitirão análises mais robustas.`
-    });
-  } else if (entidadesUnicas === 1) {
-    insights.push({
-      type: 'info',
-      icon: '🏢',
-      title: 'Dados de Uma Entidade',
-      text: `Os registos são de apenas uma entidade. Considere expandir os filtros.`
     });
   }
 

@@ -1028,7 +1028,7 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
   `;
 }
 
-async function exportarRelatorio() {
+/*async function exportarRelatorio() {
   const btn = $('exportPdfBtn');
   if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
 
@@ -1269,7 +1269,563 @@ async function exportarRelatorio() {
     }
     if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
   }
+}*/
+
+/*async function exportarRelatorio() {
+  const btn = $('exportPdfBtn');
+  if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
+
+  let prevDPR = null;
+  let stage = null;
+
+  // A4
+  const PAGE_W_MM = 210;
+  const PAGE_H_MM = 297;
+  const PAD_MM = 8;
+  const CONTENT_W_MM = PAGE_W_MM - (2 * PAD_MM);
+  const CONTENT_H_MM = PAGE_H_MM - (2 * PAD_MM);
+
+  // px fixos (layout estável)
+  const PX_PER_MM = 96 / 25.4;
+  const PAGE_W_PX = Math.round(PAGE_W_MM * PX_PER_MM);
+  const PAGE_H_PX = Math.round(PAGE_H_MM * PX_PER_MM);
+  const PAD_PX = Math.round(PAD_MM * PX_PER_MM);
+
+  const LIMITS = {
+    row1: { min: 80,  max: 170 },
+    row2: { min: 85,  max: 175 },
+    row3: { min: 85,  max: 175 }
+  };
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  // lock scroll
+  const oldScrollX = window.scrollX || window.pageXOffset || 0;
+  const oldScrollY = window.scrollY || window.pageYOffset || 0;
+  const prevOverflowHtml = document.documentElement.style.overflow;
+  const prevOverflowBody = document.body.style.overflow;
+
+  try {
+    if (typeof html2canvas !== 'function') {
+      throw new Error('html2canvas não está carregado. Verifica o <script> no index.html.');
+    }
+    if (!window.jspdf?.jsPDF) {
+      throw new Error('jsPDF não está carregado (window.jspdf.jsPDF). Verifica o <script> do jsPDF.');
+    }
+
+    const filtered = filterData();
+
+    // 1) estabiliza charts
+    Object.values(charts || {}).forEach(ch => { try { ch?.update?.('none'); } catch {} });
+    await waitTwoFrames();
+
+    // 2) aumenta definição dos charts durante o export
+    if (window.Chart?.defaults) {
+      prevDPR = Chart.defaults.devicePixelRatio;
+      Chart.defaults.devicePixelRatio = 3;
+      Object.values(charts || {}).forEach(ch => { try { ch?.resize?.(); ch?.update?.('none'); } catch {} });
+      await waitTwoFrames();
+    }
+
+    // 3) textos / KPIs
+    const anosTexto = selectedYears.length ? selectedYears.slice().sort((a,b)=>a-b).join(', ') : 'Todos';
+    const mesesTexto = selectedMonths.length
+      ? selectedMonths.slice().sort((a,b)=>a-b).map(m => MESES_FULL[m - 1]).join(', ')
+      : 'Todos';
+
+    const entidadeTexto = (sessionInfo?.filter && sessionInfo.filter !== 'all')
+      ? sessionInfo.filter
+      : (selectedEntidades.length ? selectedEntidades.join(', ') : 'Todas');
+
+    const periodoTexto = `${mesesTexto} (${anosTexto})`;
+
+    const abertas = filtered.filter(d => getStatus(d) === 'aberto').length;
+    const fechadas = filtered.filter(d => getStatus(d) === 'fechado').length;
+    const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
+    const entidadesUnicas = unique(filtered.map(getEntidade).filter(Boolean)).length;
+
+    const tempos = filtered.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
+    const tempoMedio = tempos.length ? Math.round(tempos.reduce((a,b)=>a+b,0)/tempos.length) : '-';
+    const tempoMax = tempos.length ? Math.max(...tempos) : '-';
+    const tempoMin = tempos.length ? Math.min(...tempos) : '-';
+    const tempoDesvio = (() => {
+      if (!tempos.length) return '-';
+      const m = tempos.reduce((a,b)=>a+b,0)/tempos.length;
+      const v = tempos.reduce((s,t)=>s+Math.pow(t-m,2),0)/tempos.length;
+      return Math.sqrt(v).toFixed(1);
+    })();
+
+    // 4) imagens dos charts
+    const trendChartImg = safeCanvasDataUrl('lineTrendChart');
+    const yearChartImg = safeCanvasDataUrl('yearComparisonChart');
+    const pieChartImg = safeCanvasDataUrl('rncPieChart');
+    const topKeywordsImg = safeCanvasDataUrl('topKeywordsChart');
+    const tempoResolucaoImg = safeCanvasDataUrl('tempoResolucaoChart');
+
+    // 5) congela scroll / topo
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
+    await waitTwoFrames();
+
+    // 6) stage no viewport, sem flex
+    stage = document.createElement('div');
+    stage.id = 'pdfStage';
+    stage.style.position = 'fixed';
+    stage.style.left = '0';
+    stage.style.top = '0';
+    stage.style.width = `${PAGE_W_PX}px`;
+    stage.style.height = `${PAGE_H_PX}px`;
+    stage.style.background = '#fff';
+    stage.style.zIndex = '2147483647';
+    stage.style.pointerEvents = 'none';
+    stage.style.opacity = '0.01';
+    stage.style.overflow = 'hidden';
+    stage.style.transform = 'none';
+    stage.style.zoom = '1';
+    document.body.appendChild(stage);
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'pdfWrapper';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.width = `${PAGE_W_PX}px`;
+    wrapper.style.height = `${PAGE_H_PX}px`;
+    wrapper.style.background = '#fff';
+    wrapper.style.boxSizing = 'border-box';
+    wrapper.style.padding = `${PAD_PX}px`;
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.transform = 'none';
+    wrapper.style.zoom = '1';
+    stage.appendChild(wrapper);
+
+    // alturas a ajustar
+    let hRow1 = 118;
+    let hRow2 = 128;
+    let hRow3 = 128;
+
+    const buildHtml = () => `
+      <style>
+        #pdfRoot, #pdfRoot * { box-sizing: border-box; }
+        #pdfRoot { width:100%; max-width:100%; overflow:hidden; font-family: Arial, sans-serif; background:#fff; color:#0f172a; }
+        .pdfRow { margin-bottom:8px; }
+      </style>
+
+      <div id="pdfRoot">
+        <div style="margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height:32px;">
+          </div>
+          <h1 style="margin:0; font-size:18px; font-weight:700;">Dashboard de Qualidade</h1>
+          <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Sistema de Análise de Não Conformidades</p>
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:10px;">
+          <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #3b82f6;">
+            <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Entidade</p>
+            <p style="margin:3px 0 0 0; font-weight:700; font-size:11px; line-height:1.2;">${entidadeTexto}</p>
+          </div>
+          <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #8b5cf6;">
+            <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Período</p>
+            <p style="margin:3px 0 0 0; font-weight:700; font-size:9px; line-height:1.3;">${periodoTexto}</p>
+          </div>
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+          ${kpiBox('Total Registos', filtered.length, '#0f172a')}
+          ${kpiBox('Entidades Ativas', entidadesUnicas, '#2563eb')}
+          ${kpiBox('RNCs em Aberto', abertas, '#ef4444')}
+          ${kpiBox('Taxa de Resolução', taxa + '%', '#16a34a')}
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
+          ${imgCard('Tendência Mensal (por Ano)', trendChartImg, hRow1)}
+          ${imgCard('Status Geral RNCs', pieChartImg, hRow1)}
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          ${imgCard('Total RNCs por Ano', yearChartImg, hRow2)}
+          ${imgCard('Top 5 Keywords', topKeywordsImg, hRow2)}
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          ${imgCard('Tempo Previsto de Resolução', tempoResolucaoImg, hRow3)}
+          <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; box-sizing:border-box;">
+            <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+              Estatísticas de Resolução
+            </h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+              ${kpiBox('Tempo Médio (min)', tempoMedio, '#0f766e')}
+              ${kpiBox('Tempo Máximo (min)', tempoMax, '#ea580c')}
+              ${kpiBox('Tempo Mínimo (min)', tempoMin, '#16a34a')}
+              ${kpiBox('Desvio Padrão', tempoDesvio, '#2563eb')}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:6px; display:flex; justify-content:flex-end;">
+          <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
+        </div>
+      </div>
+    `;
+
+    wrapper.innerHTML = buildHtml();
+    await waitTwoFrames();
+
+    // aguarda fontes + imagens
+    if (document.fonts?.ready) await document.fonts.ready;
+    const imgs = Array.from(wrapper.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+    }));
+    await waitTwoFrames();
+
+    // AUTO-FIT altura
+    let root = wrapper.querySelector('#pdfRoot');
+    const targetHeightPx = Math.round(CONTENT_H_MM * PX_PER_MM);
+
+    for (let i = 0; i < 12; i++) {
+      const currentH = root.scrollHeight;
+      const diff = targetHeightPx - currentH;
+      if (Math.abs(diff) < 6) break;
+
+      const step = diff * 0.35;
+      hRow1 = clamp(Math.round(hRow1 + step * 0.45), LIMITS.row1.min, LIMITS.row1.max);
+      hRow2 = clamp(Math.round(hRow2 + step * 0.30), LIMITS.row2.min, LIMITS.row2.max);
+      hRow3 = clamp(Math.round(hRow3 + step * 0.25), LIMITS.row3.min, LIMITS.row3.max);
+
+      wrapper.innerHTML = buildHtml();
+      await waitTwoFrames();
+      root = wrapper.querySelector('#pdfRoot');
+    }
+
+    // 7) CAPTURA: html2canvas directo (aqui é que acaba o "corte")
+    const canvas = await html2canvas(wrapper, {
+      backgroundColor: '#ffffff',
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+
+      // ✅ compensação que evita "fatia à esquerda"
+      scrollX: -oldScrollX,
+      scrollY: -oldScrollY,
+
+      // ✅ força o tamanho exacto do wrapper
+      width: PAGE_W_PX,
+      height: PAGE_H_PX,
+      windowWidth: PAGE_W_PX,
+      windowHeight: PAGE_H_PX
+    });
+
+    const imgData = canvas.toDataURL('image/png', 1.0);
+
+    // 8) PDF: addImage exactamente no A4 (com padding em mm)
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    pdf.addImage(imgData, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
+
+    pdf.save(`Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`);
+
+  } catch (e) {
+    console.error(e);
+    alert(`Erro ao exportar PDF: ${e.message}`);
+  } finally {
+    // restore scroll / overflow
+    document.documentElement.style.overflow = prevOverflowHtml;
+    document.body.style.overflow = prevOverflowBody;
+    try { window.scrollTo(oldScrollX, oldScrollY); } catch {}
+
+    if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
+
+    if (prevDPR !== null && window.Chart?.defaults) {
+      Chart.defaults.devicePixelRatio = prevDPR;
+      Object.values(charts || {}).forEach(ch => { try { ch?.resize?.(); ch?.update?.('none'); } catch {} });
+    }
+
+    if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
+  }
+}*/
+
+async function exportarRelatorio() {
+  const btn = $('exportPdfBtn');
+  if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
+
+  let prevDPR = null;
+  let stage = null;
+
+  // A4
+  const PAGE_W_MM = 210;
+  const PAGE_H_MM = 297;
+  const PAD_MM = 8;
+  const CONTENT_W_MM = PAGE_W_MM - (2 * PAD_MM);
+  const CONTENT_H_MM = PAGE_H_MM - (2 * PAD_MM);
+
+  // px fixos (layout estável)
+  const PX_PER_MM = 96 / 25.4;
+  const PAGE_W_PX = Math.round(PAGE_W_MM * PX_PER_MM);
+  const PAGE_H_PX = Math.round(PAGE_H_MM * PX_PER_MM);
+  const PAD_PX = Math.round(PAD_MM * PX_PER_MM);
+
+  const LIMITS = {
+    row1: { min: 80,  max: 170 },
+    row2: { min: 85,  max: 175 },
+    row3: { min: 85,  max: 175 }
+  };
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  // lock scroll
+  const oldScrollX = window.scrollX || window.pageXOffset || 0;
+  const oldScrollY = window.scrollY || window.pageYOffset || 0;
+  const prevOverflowHtml = document.documentElement.style.overflow;
+  const prevOverflowBody = document.body.style.overflow;
+
+  try {
+    if (typeof html2canvas !== 'function') {
+      throw new Error('html2canvas não está carregado. Verifica o <script> no index.html.');
+    }
+    if (!window.jspdf?.jsPDF) {
+      throw new Error('jsPDF não está carregado (window.jspdf.jsPDF). Verifica o <script> do jsPDF.');
+    }
+
+    const filtered = filterData();
+
+    // 1) estabiliza charts
+    Object.values(charts || {}).forEach(ch => { try { ch?.update?.('none'); } catch {} });
+    await waitTwoFrames();
+
+    // 2) aumenta definição dos charts durante o export
+    if (window.Chart?.defaults) {
+      prevDPR = Chart.defaults.devicePixelRatio;
+      Chart.defaults.devicePixelRatio = 3;
+      Object.values(charts || {}).forEach(ch => { try { ch?.resize?.(); ch?.update?.('none'); } catch {} });
+      await waitTwoFrames();
+    }
+
+    // 3) textos / KPIs
+    const anosTexto = selectedYears.length ? selectedYears.slice().sort((a,b)=>a-b).join(', ') : 'Todos';
+    const mesesTexto = selectedMonths.length
+      ? selectedMonths.slice().sort((a,b)=>a-b).map(m => MESES_FULL[m - 1]).join(', ')
+      : 'Todos';
+
+    const entidadeTexto = (sessionInfo?.filter && sessionInfo.filter !== 'all')
+      ? sessionInfo.filter
+      : (selectedEntidades.length ? selectedEntidades.join(', ') : 'Todas');
+
+    const periodoTexto = `${mesesTexto} (${anosTexto})`;
+
+    const abertas = filtered.filter(d => getStatus(d) === 'aberto').length;
+    const fechadas = filtered.filter(d => getStatus(d) === 'fechado').length;
+    const taxa = filtered.length > 0 ? Math.round((fechadas / filtered.length) * 100) : 0;
+    const entidadesUnicas = unique(filtered.map(getEntidade).filter(Boolean)).length;
+
+    const tempos = filtered.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
+    const tempoMedio = tempos.length ? Math.round(tempos.reduce((a,b)=>a+b,0)/tempos.length) : '-';
+    const tempoMax = tempos.length ? Math.max(...tempos) : '-';
+    const tempoMin = tempos.length ? Math.min(...tempos) : '-';
+    const tempoDesvio = (() => {
+      if (!tempos.length) return '-';
+      const m = tempos.reduce((a,b)=>a+b,0)/tempos.length;
+      const v = tempos.reduce((s,t)=>s+Math.pow(t-m,2),0)/tempos.length;
+      return Math.sqrt(v).toFixed(1);
+    })();
+
+    // 4) imagens dos charts
+    const trendChartImg = safeCanvasDataUrl('lineTrendChart');
+    const yearChartImg = safeCanvasDataUrl('yearComparisonChart');
+    const pieChartImg = safeCanvasDataUrl('rncPieChart');
+    const topKeywordsImg = safeCanvasDataUrl('topKeywordsChart');
+    const tempoResolucaoImg = safeCanvasDataUrl('tempoResolucaoChart');
+
+    // 5) congela scroll / topo
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
+    await waitTwoFrames();
+
+    // 6) stage no viewport, sem flex
+    stage = document.createElement('div');
+    stage.id = 'pdfStage';
+    stage.style.position = 'fixed';
+    stage.style.left = '0';
+    stage.style.top = '0';
+    stage.style.width = `${PAGE_W_PX}px`;
+    stage.style.height = `${PAGE_H_PX}px`;
+    stage.style.background = '#fff';
+    stage.style.zIndex = '2147483647';
+    stage.style.pointerEvents = 'none';
+    stage.style.opacity = '0.01';
+    stage.style.overflow = 'hidden';
+    stage.style.transform = 'none';
+    stage.style.zoom = '1';
+    document.body.appendChild(stage);
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'pdfWrapper';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.width = `${PAGE_W_PX}px`;
+    wrapper.style.height = `${PAGE_H_PX}px`;
+    wrapper.style.background = '#fff';
+    wrapper.style.boxSizing = 'border-box';
+    wrapper.style.padding = `${PAD_PX}px`;
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.transform = 'none';
+    wrapper.style.zoom = '1';
+    stage.appendChild(wrapper);
+
+    // alturas a ajustar
+    let hRow1 = 118;
+    let hRow2 = 128;
+    let hRow3 = 128;
+
+    const buildHtml = () => `
+      <style>
+        #pdfRoot, #pdfRoot * { box-sizing: border-box; }
+        #pdfRoot { width:100%; max-width:100%; overflow:hidden; font-family: Arial, sans-serif; background:#fff; color:#0f172a; }
+        .pdfRow { margin-bottom:8px; }
+      </style>
+
+      <div id="pdfRoot">
+        <div style="margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height:32px;">
+          </div>
+          <h1 style="margin:0; font-size:18px; font-weight:700;">Dashboard de Qualidade</h1>
+          <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Sistema de Análise de Não Conformidades</p>
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:10px;">
+          <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #3b82f6;">
+            <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Entidade</p>
+            <p style="margin:3px 0 0 0; font-weight:700; font-size:11px; line-height:1.2;">${entidadeTexto}</p>
+          </div>
+          <div style="background:#f1f5f9; padding:8px; border-radius:6px; border-left:3px solid #8b5cf6;">
+            <p style="margin:0; font-weight:700; font-size:8px; text-transform:uppercase; color:#64748b;">Período</p>
+            <p style="margin:3px 0 0 0; font-weight:700; font-size:9px; line-height:1.3;">${periodoTexto}</p>
+          </div>
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+          ${kpiBox('Total Registos', filtered.length, '#0f172a')}
+          ${kpiBox('Entidades Ativas', entidadesUnicas, '#2563eb')}
+          ${kpiBox('RNCs em Aberto', abertas, '#ef4444')}
+          ${kpiBox('Taxa de Resolução', taxa + '%', '#16a34a')}
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
+          ${imgCard('Tendência Mensal (por Ano)', trendChartImg, hRow1)}
+          ${imgCard('Status Geral RNCs', pieChartImg, hRow1)}
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          ${imgCard('Total RNCs por Ano', yearChartImg, hRow2)}
+          ${imgCard('Top 5 Keywords', topKeywordsImg, hRow2)}
+        </div>
+
+        <div class="pdfRow" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          ${imgCard('Tempo Previsto de Resolução', tempoResolucaoImg, hRow3)}
+          <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; box-sizing:border-box;">
+            <h3 style="margin:0 0 8px 0; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+              Estatísticas de Resolução
+            </h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+              ${kpiBox('Tempo Médio (min)', tempoMedio, '#0f766e')}
+              ${kpiBox('Tempo Máximo (min)', tempoMax, '#ea580c')}
+              ${kpiBox('Tempo Mínimo (min)', tempoMin, '#16a34a')}
+              ${kpiBox('Desvio Padrão', tempoDesvio, '#2563eb')}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:6px; display:flex; justify-content:flex-end;">
+          <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
+        </div>
+      </div>
+    `;
+
+    wrapper.innerHTML = buildHtml();
+    await waitTwoFrames();
+
+    // aguarda fontes + imagens
+    if (document.fonts?.ready) await document.fonts.ready;
+    const imgs = Array.from(wrapper.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+    }));
+    await waitTwoFrames();
+
+    // AUTO-FIT altura
+    let root = wrapper.querySelector('#pdfRoot');
+    const targetHeightPx = Math.round(CONTENT_H_MM * PX_PER_MM);
+
+    for (let i = 0; i < 12; i++) {
+      const currentH = root.scrollHeight;
+      const diff = targetHeightPx - currentH;
+      if (Math.abs(diff) < 6) break;
+
+      const step = diff * 0.35;
+      hRow1 = clamp(Math.round(hRow1 + step * 0.45), LIMITS.row1.min, LIMITS.row1.max);
+      hRow2 = clamp(Math.round(hRow2 + step * 0.30), LIMITS.row2.min, LIMITS.row2.max);
+      hRow3 = clamp(Math.round(hRow3 + step * 0.25), LIMITS.row3.min, LIMITS.row3.max);
+
+      wrapper.innerHTML = buildHtml();
+      await waitTwoFrames();
+      root = wrapper.querySelector('#pdfRoot');
+    }
+
+    // 7) CAPTURA: html2canvas directo (aqui é que acaba o “corte”)
+    const canvas = await html2canvas(wrapper, {
+      backgroundColor: '#ffffff',
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+
+      // ✅ compensação que evita “fatia à esquerda”
+      scrollX: -oldScrollX,
+      scrollY: -oldScrollY,
+
+      // ✅ força o tamanho exacto do wrapper
+      width: PAGE_W_PX,
+      height: PAGE_H_PX,
+      windowWidth: PAGE_W_PX,
+      windowHeight: PAGE_H_PX
+    });
+
+    const imgData = canvas.toDataURL('image/png', 1.0);
+
+    // 8) PDF: addImage exactamente no A4 (com padding em mm)
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    pdf.addImage(imgData, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
+
+    pdf.save(`Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`);
+
+  } catch (e) {
+    console.error(e);
+    alert(`Erro ao exportar PDF: ${e.message}`);
+  } finally {
+    // restore scroll / overflow
+    document.documentElement.style.overflow = prevOverflowHtml;
+    document.body.style.overflow = prevOverflowBody;
+    try { window.scrollTo(oldScrollX, oldScrollY); } catch {}
+
+    if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
+
+    if (prevDPR !== null && window.Chart?.defaults) {
+      Chart.defaults.devicePixelRatio = prevDPR;
+      Object.values(charts || {}).forEach(ch => { try { ch?.resize?.(); ch?.update?.('none'); } catch {} });
+    }
+
+    if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
+  }
 }
+
+
 
 /* ========= MODAL / UI ========= */
 

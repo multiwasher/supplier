@@ -410,6 +410,186 @@ function filterData() {
   });
 }
 
+/* ========= INSIGHTS / ANALYSIS ========= */
+
+function generateInsights(data) {
+  if (!data || data.length === 0) {
+    renderInsights([]);
+    return;
+  }
+
+  const insights = [];
+
+  // 1) Status & Closure Rate
+  const abertas = data.filter(d => getStatus(d) === 'aberto').length;
+  const fechadas = data.filter(d => getStatus(d) === 'fechado').length;
+  const taxa = data.length > 0 ? Math.round((fechadas / data.length) * 100) : 0;
+
+  if (taxa < 50) {
+    insights.push({
+      type: 'alert',
+      icon: '⚠️',
+      title: 'Taxa de Resolução Baixa',
+      text: `Apenas ${taxa}% das RNCs foram fechadas. Considere revisar o processo de resolução.`
+    });
+  } else if (taxa >= 80) {
+    insights.push({
+      type: 'success',
+      icon: '✅',
+      title: 'Excelente Taxa de Resolução',
+      text: `${taxa}% das RNCs foram fechadas. Ótimo desempenho!`
+    });
+  } else {
+    insights.push({
+      type: 'info',
+      icon: 'ℹ️',
+      title: 'Taxa de Resolução Moderada',
+      text: `${taxa}% das RNCs foram fechadas. Há margem para melhorias.`
+    });
+  }
+
+  // 2) Open RNCs Alert
+  if (abertas > data.length * 0.4) {
+    insights.push({
+      type: 'alert',
+      icon: '🔴',
+      title: 'Muitas RNCs em Aberto',
+      text: `${abertas} RNCs ainda estão abertas. Priorize o encerramento destas.`
+    });
+  }
+
+  // 3) Average Resolution Time
+  const tempos = data.map(getTempoPrevisto).filter(t => Number.isFinite(t) && t >= 0);
+  if (tempos.length > 0) {
+    const tempoMedio = Math.round(tempos.reduce((a, b) => a + b, 0) / tempos.length);
+    if (tempoMedio > 480) { // > 8 horas
+      insights.push({
+        type: 'alert',
+        icon: '⏱️',
+        title: 'Tempo Médio de Resolução Elevado',
+        text: `Tempo médio de ${tempoMedio} minutos (${Math.round(tempoMedio / 60)} horas). Considere otimizar o processo.`
+      });
+    } else if (tempoMedio < 120) {
+      insights.push({
+        type: 'success',
+        icon: '⚡',
+        title: 'Resolução Rápida',
+        text: `Tempo médio de ${tempoMedio} minutos. Excelente resposta!`
+      });
+    }
+  }
+
+  // 4) Entity Performance
+  const entidades = getEntitiesForBreakdown(data);
+  if (entidades.length > 1) {
+    const entidadeStats = entidades.map(ent => {
+      const entData = data.filter(d => toLowerTrim(getEntidade(d)) === toLowerTrim(ent));
+      const abertasEnt = entData.filter(d => getStatus(d) === 'aberto').length;
+      const fechadasEnt = entData.filter(d => getStatus(d) === 'fechado').length;
+      const taxaEnt = entData.length > 0 ? Math.round((fechadasEnt / entData.length) * 100) : 0;
+      return { ent, total: entData.length, abertas: abertasEnt, taxa: taxaEnt };
+    });
+
+    const worst = entidadeStats.reduce((a, b) => a.taxa < b.taxa ? a : b);
+    const best = entidadeStats.reduce((a, b) => a.taxa > b.taxa ? a : b);
+
+    if (worst.taxa < 40 && worst.total > 2) {
+      insights.push({
+        type: 'alert',
+        icon: '📊',
+        title: 'Entidade com Baixa Performance',
+        text: `${worst.ent} tem taxa de resolução de ${worst.taxa}%. Investigação recomendada.`
+      });
+    }
+
+    if (best.taxa > 85 && best.total > 2) {
+      insights.push({
+        type: 'success',
+        icon: '⭐',
+        title: 'Melhor Performer',
+        text: `${best.ent} lidera com ${best.taxa}% de taxa de resolução.`
+      });
+    }
+  }
+
+  // 5) Keywords Trend
+  const keywords = data
+    .map(getKeyword)
+    .filter(Boolean)
+    .reduce((acc, kw) => { acc[kw] = (acc[kw] || 0) + 1; return acc; }, {});
+
+  const topKeywords = Object.entries(keywords)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  if (topKeywords.length > 0) {
+    const topKw = topKeywords[0];
+    insights.push({
+      type: 'info',
+      icon: '🏷️',
+      title: 'Issue Mais Frequente',
+      text: `"${topKw[0]}" aparece ${topKw[1]}x nos registos. Esta é a questão mais comum.`
+    });
+  }
+
+  // 6) Data Volume
+  const entidadesUnicas = unique(data.map(getEntidade).filter(Boolean)).length;
+  if (data.length < 5) {
+    insights.push({
+      type: 'info',
+      icon: 'ℹ️',
+      title: 'Dados Limitados',
+      text: `Apenas ${data.length} registos encontrados. Mais dados permitirão análises mais robustas.`
+    });
+  } else if (entidadesUnicas === 1) {
+    insights.push({
+      type: 'info',
+      icon: '🏢',
+      title: 'Dados de Uma Entidade',
+      text: `Os registos são de apenas uma entidade. Considere expandir os filtros.`
+    });
+  }
+
+  renderInsights(insights);
+}
+
+function renderInsights(insights) {
+  const container = $('insightsList');
+  if (!container) return;
+
+  if (insights.length === 0) {
+    container.innerHTML = '<p class="text-slate-500 text-center py-8">Nenhuma análise disponível para estes dados.</p>';
+    return;
+  }
+
+  container.innerHTML = insights.map(insight => {
+    const bgColor = {
+      success: 'bg-green-50 border-l-4 border-green-500',
+      alert: 'bg-red-50 border-l-4 border-red-500',
+      info: 'bg-blue-50 border-l-4 border-blue-500'
+    }[insight.type] || 'bg-slate-50';
+
+    const textColor = {
+      success: 'text-green-800',
+      alert: 'text-red-800',
+      info: 'text-blue-800'
+    }[insight.type] || 'text-slate-800';
+
+    return `
+      <div class="p-4 rounded-lg ${bgColor}">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl flex-shrink-0">${insight.icon}</span>
+          <div class="flex-1">
+            <h4 class="font-bold ${textColor} mb-1">${insight.title}</h4>
+            <p class="text-sm ${textColor} opacity-85">${insight.text}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+
 function updateDashboard() {
   const filtered = filterData();
 
@@ -433,6 +613,9 @@ function updateDashboard() {
   renderKeywordCharts(filtered);
   renderTopKeywordByYear(filtered);
   renderTempoResolucaoChart(filtered);
+
+  // Generate automatic insights
+  generateInsights(filtered);
 }
 
 /* ========= CHART HELPERS ========= */

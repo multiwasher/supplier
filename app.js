@@ -2199,59 +2199,6 @@ async function exportarRelatorio() {
           </div>
         </div>
 
-        <!-- Análise em Detalhe (se tiver dados) -->
-        ${(() => {
-          const key = (() => {
-            const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
-            const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
-            return `${ents}_${anos}`;
-          })();
-          const allData = (() => {
-            const stored = localStorage.getItem(DETAILED_ANALYSIS_STORAGE_KEY);
-            return stored ? JSON.parse(stored) : {};
-          })();
-          const saved = allData[key];
-          
-          if (!saved) return '';
-          
-          const hasData = saved.year1 || saved.year2 || saved.mws200 || saved.mws300 || saved.mws500 || saved.mws700 || saved.mws715 || saved.analysis;
-          if (!hasData) return '';
-
-          return `
-            <div class="pdfRow" style="border-top:2px solid #e2e8f0; padding-top:8px; margin-top:4px;">
-              <h3 style="margin:0 0 6px 0; font-size:11px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:4px;">
-                <span style="width:6px; height:6px; background:#a855f7; border-radius:50%;"></span>Análise em Detalhe
-              </h3>
-              <div style="display:grid; grid-template-columns: 30% 70%; gap:10px; font-size:9px;">
-                <!-- Column A: 30% -->
-                <div style="background:#f8f6ff; padding:6px; border-radius:6px; border:1px solid #e9d5ff;">
-                  <div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #ddd6fe;">
-                    <p style="margin:0; font-weight:700; color:#6b21a8; font-size:8px;">ANOS</p>
-                    <div style="margin-top:2px; font-weight:600; color:#0f172a; font-size:8px;">
-                      <div>\${saved.year1 || '-'}</div>
-                      \${saved.year2 ? \`<div>\${saved.year2}</div>\` : ''}
-                    </div>
-                  </div>
-                  <div>
-                    <p style="margin:0; font-weight:700; color:#6b21a8; font-size:8px;">EQUIPAMENTOS</p>
-                    <div style="margin-top:3px; font-size:8px;">
-                      ${saved.mws200 ? `<div>MWS200: ${saved.mws200}</div>` : ''}
-                      ${saved.mws300 ? `<div>MWS300: ${saved.mws300}</div>` : ''}
-                      ${saved.mws500 ? `<div>MWS500: ${saved.mws500}</div>` : ''}
-                      ${saved.mws700 ? `<div>MWS700: ${saved.mws700}</div>` : ''}
-                      ${saved.mws715 ? `<div>MWS715: ${saved.mws715}</div>` : ''}
-                    </div>
-                  </div>
-                </div>
-                <!-- Column B: 70% -->
-                <div style="background:#f1f5f9; padding:6px; border-radius:6px; border:1px solid #cbd5e1; font-size:8px; line-height:1.4;">
-                  <p style="margin:0; white-space:pre-wrap; word-wrap:break-word; color:#0f172a;">${saved.analysis || ''}</p>
-                </div>
-              </div>
-            </div>
-          `;
-        })()}
-
         <div style="margin-top:6px; display:flex; justify-content:flex-end;">
           <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
         </div>

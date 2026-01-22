@@ -214,6 +214,8 @@ async function fetchData() {
 }
 
 async function refreshData() {
+  console.log('🔄 refreshData() INICIADO');
+  
   const icon = $('refreshIcon');
   const btn = $('refreshDataBtn');
 
@@ -224,7 +226,96 @@ async function refreshData() {
   if (icon) icon.style.animation = 'spin 1.2s linear infinite';
 
   try {
+    // Limpar cache
+    console.log('🗑️  Limpando localStorage...');
+    localStorage.removeItem('detailedAnalysisData');
+    console.log('✅ Cache removida');
+    
+    // Destruir TODOS os gráficos ANTES de fetchData
+    console.log('📊 Destruindo TODOS os gráficos do dashboard...');
+    const allChartIds = [
+      'trend',                           // Dashboard: Tendência Mensal
+      'pie',                             // Dashboard: Status Geral RNCs
+      'yearComparison',                  // Dashboard: Total RNCs por Ano
+      'topKeywords',                     // Dashboard: Top 5 Keywords
+      'tempoResolucao',                  // Dashboard: Tempo de Resolução
+      'detailComparison1',               // Análise Detalhada: Ano 1 (chave interna)
+      'detailComparison2',               // Análise Detalhada: Ano 2 (chave interna)
+      'detailTrendComparison'            // Análise Detalhada: Comparação Tendências (chave interna)
+    ];
+    
+    allChartIds.forEach(chartKey => {
+      if (charts[chartKey]) {
+        console.log(`  🗑️  Destruindo gráfico: ${chartKey}`);
+        charts[chartKey].destroy();
+        charts[chartKey] = null;
+      }
+    });
+    
+    // Limpar canvas também
+    const canvasIds = ['lineTrendChart', 'rncPieChart', 'yearComparisonChart', 'topKeywordsChart', 'tempoResolucaoChart', 'detailComparisonChartYear1', 'detailComparisonChartYear2', 'detailTrendComparisonChart'];
+    canvasIds.forEach(canvasId => {
+      const canvas = $(canvasId);
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        console.log(`  ⬜ Canvas limpo: ${canvasId}`);
+      }
+    });
+    console.log('✅ Todos os gráficos destruídos e canvas limpo');
+    
+    console.log('📡 Buscando dados...');
     await fetchData();
+    console.log('✅ Dados carregados');
+    
+    // Destruir novamente os gráficos após fetchData (pois updateDashboard os recria)
+    console.log('📊 Destruindo gráficos novamente após fetchData...');
+    const allChartKeys = [
+      'trend',                           // Dashboard: Tendência Mensal
+      'pie',                             // Dashboard: Status Geral RNCs
+      'yearComparison',                  // Dashboard: Total RNCs por Ano
+      'topKeywords',                     // Dashboard: Top 5 Keywords
+      'tempoResolucao',                  // Dashboard: Tempo de Resolução
+      'detailComparison1',               // Análise Detalhada: Ano 1
+      'detailComparison2',               // Análise Detalhada: Ano 2
+      'detailTrendComparison'            // Análise Detalhada: Comparação Tendências
+    ];
+    allChartKeys.forEach(chartKey => {
+      if (charts[chartKey]) {
+        console.log(`  🗑️  Destruindo gráfico: ${chartKey}`);
+        charts[chartKey].destroy();
+        charts[chartKey] = null;
+      }
+    });
+    
+    // Limpar canvas novamente
+    canvasIds.forEach(canvasId => {
+      const canvas = $(canvasId);
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    });
+    console.log('✅ Gráficos destruídos novamente após renderização');
+    
+    // Colocar "-" em todos os campos (valor inicial, que não renderiza gráficos)
+    console.log('📝 Colocando "-" em todos os campos...');
+    const detailFields = [
+      'detailAnalysisYear1', 'detailAnalysisYear2',
+      'detailMWS200Year1', 'detailMWS300Year1', 'detailMWS500Year1', 'detailMWS700Year1', 'detailMWS715Year1',
+      'detailMWS200Year2', 'detailMWS300Year2', 'detailMWS500Year2', 'detailMWS700Year2', 'detailMWS715Year2',
+      'detailAnalysisText'
+    ];
+    
+    detailFields.forEach(fieldId => {
+      const field = $(fieldId);
+      if (field) {
+        field.value = '-';
+        console.log(`  ✓ Campo ${fieldId} = "-"`);
+      }
+    });
+    console.log('✅ Campos resetados para "-"');
+    
     alert(`Dados atualizados com sucesso! (${allData.length} registos)`);
   } catch (e) {
     alert(`Erro ao atualizar: ${e.message}`);

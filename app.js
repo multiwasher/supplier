@@ -2003,7 +2003,9 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
 
 async function exportarRelatorio() {
   const btn = $('exportPdfBtn');
+  const loadingBtn = $('loadingBtn');
   if (btn) { btn.disabled = true; btn.classList.add('opacity-75'); }
+  if (loadingBtn) { loadingBtn.classList.remove('hidden'); }
 
   let prevDPR = null;
   let stage = null;
@@ -2421,6 +2423,7 @@ async function exportarRelatorio() {
     }
 
     if (btn) { btn.disabled = false; btn.classList.remove('opacity-75'); }
+    if (loadingBtn) { loadingBtn.classList.add('hidden'); }
   }
 }
 

@@ -743,6 +743,9 @@ function updateDashboard() {
   renderTopKeywordByYear(filtered);
   renderTempoResolucaoChart(filtered);
 
+  // Update detailed analysis section
+  updateDetailedAnalysisSection(filtered);
+
   // Generate automatic insights
   generateInsights(filtered);
 }
@@ -1836,7 +1839,138 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
+    // Page 1: Main dashboard
     pdf.addImage(imgData, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
+
+    // Page 2: Detailed Analysis
+    pdf.addPage();
+    
+    const stage2Canvas = document.createElement('div');
+    stage2Canvas.id = 'pdfStage2';
+    stage2Canvas.style.position = 'fixed';
+    stage2Canvas.style.left = '0';
+    stage2Canvas.style.top = '0';
+    stage2Canvas.style.width = `${PAGE_W_PX}px`;
+    stage2Canvas.style.height = `${PAGE_H_PX}px`;
+    stage2Canvas.style.background = '#fff';
+    stage2Canvas.style.zIndex = '2147483646';
+    stage2Canvas.style.pointerEvents = 'none';
+    stage2Canvas.style.opacity = '0.01';
+    stage2Canvas.style.overflow = 'hidden';
+    stage2Canvas.style.transform = 'none';
+    stage2Canvas.style.zoom = '1';
+    document.body.appendChild(stage2Canvas);
+
+    const wrapper2 = document.createElement('div');
+    wrapper2.id = 'pdfWrapper2';
+    wrapper2.style.position = 'absolute';
+    wrapper2.style.left = '0';
+    wrapper2.style.top = '0';
+    wrapper2.style.width = `${PAGE_W_PX}px`;
+    wrapper2.style.height = `${PAGE_H_PX}px`;
+    wrapper2.style.background = '#fff';
+    wrapper2.style.boxSizing = 'border-box';
+    wrapper2.style.padding = `${PAD_PX}px`;
+    wrapper2.style.overflow = 'hidden';
+    wrapper2.style.transform = 'none';
+    wrapper2.style.zoom = '1';
+    stage2Canvas.appendChild(wrapper2);
+
+    const buildHtml2 = () => `
+      <style>
+        #pdfRoot2, #pdfRoot2 * { box-sizing: border-box; }
+        #pdfRoot2 { width:100%; max-width:100%; overflow:hidden; font-family: Arial, sans-serif; background:#fff; color:#0f172a; }
+        .pdfRow2 { margin-bottom:8px; }
+      </style>
+      <div id="pdfRoot2">
+        <div style="margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
+          <h2 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
+            <span style="width:8px; height:8px; background:#a855f7; border-radius:50%;"></span>Análise em Detalhe
+          </h2>
+        </div>
+        
+        <div class="pdfRow2" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f8f6ff;">
+            <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; color:#6b21a8; border-bottom:1px solid #e9d5ff; padding-bottom:4px;">
+              Ano 1 - Distribuição de Equipamentos
+            </h3>
+            <div style="text-align:center; height:180px; display:flex; align-items:center; justify-content:center;">
+              ${detailChartYear1Img ? `<img src="${detailChartYear1Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:9px;">Sem dados</p>'}
+            </div>
+          </div>
+          <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f8f6ff;">
+            <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; color:#6b21a8; border-bottom:1px solid #e9d5ff; padding-bottom:4px;">
+              Ano 2 - Distribuição de Equipamentos
+            </h3>
+            <div style="text-align:center; height:180px; display:flex; align-items:center; justify-content:center;">
+              ${detailChartYear2Img ? `<img src="${detailChartYear2Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:9px;">Sem dados</p>'}
+            </div>
+          </div>
+        </div>
+
+        <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f8f6ff;">
+          <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; color:#6b21a8; border-bottom:1px solid #e9d5ff; padding-bottom:4px;">
+            Comparação de Tendências - Ano 1 vs Ano 2
+          </h3>
+          <div style="text-align:center; height:180px; display:flex; align-items:center; justify-content:center;">
+            ${detailTrendChartImg ? `<img src="${detailTrendChartImg}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:9px;">Sem dados</p>'}
+          </div>
+        </div>
+
+        <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f1f5f9;">
+          <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; border-bottom:1px solid #cbd5e1; padding-bottom:4px;">
+            Análise Pessoal Detalhada
+          </h3>
+          ${(() => {
+            const key = (() => {
+              const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
+              const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
+              return \`\${ents}_\${anos}\`;
+            })();
+            const allData = (() => {
+              const stored = localStorage.getItem(DETAILED_ANALYSIS_STORAGE_KEY);
+              return stored ? JSON.parse(stored) : {};
+            })();
+            const saved = allData[key];
+            
+            if (!saved || !saved.analysis) return '<p style="margin:0; font-size:9px; color:#94a3b8;">Sem análise registada</p>';
+            
+            return \`<p style="margin:0; font-size:8px; line-height:1.5; color:#0f172a; white-space:pre-wrap; word-wrap:break-word;">\${saved.analysis}</p>\`;
+          })()}
+        </div>
+      </div>
+    `;
+
+    wrapper2.innerHTML = buildHtml2();
+    await waitTwoFrames();
+
+    // Load images
+    const imgs2 = Array.from(wrapper2.querySelectorAll('img'));
+    await Promise.all(imgs2.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+    }));
+    await waitTwoFrames();
+
+    // Capture page 2
+    const canvas2 = await html2canvas(wrapper2, {
+      backgroundColor: '#ffffff',
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+      scrollX: -oldScrollX,
+      scrollY: -oldScrollY,
+      width: PAGE_W_PX,
+      height: PAGE_H_PX,
+      windowWidth: PAGE_W_PX,
+      windowHeight: PAGE_H_PX
+    });
+
+    const imgData2 = canvas2.toDataURL('image/png', 1.0);
+    pdf.addImage(imgData2, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
+
+    // Clean up stage2
+    if (stage2Canvas && stage2Canvas.parentNode) stage2Canvas.parentNode.removeChild(stage2Canvas);
 
     pdf.save(`Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`);
 
@@ -1866,6 +2000,7 @@ async function exportarRelatorio() {
 
   let prevDPR = null;
   let stage = null;
+  let stage2 = null;
 
   // A4
   const PAGE_W_MM = 210;
@@ -1943,12 +2078,17 @@ async function exportarRelatorio() {
       return Math.sqrt(v).toFixed(1);
     })();
 
-    // 4) imagens dos charts
+    // 4) imagens dos charts - main dashboard
     const trendChartImg = safeCanvasDataUrl('lineTrendChart');
     const yearChartImg = safeCanvasDataUrl('yearComparisonChart');
     const pieChartImg = safeCanvasDataUrl('rncPieChart');
     const topKeywordsImg = safeCanvasDataUrl('topKeywordsChart');
     const tempoResolucaoImg = safeCanvasDataUrl('tempoResolucaoChart');
+    
+    // Detailed Analysis charts - page 2
+    const detailChartYear1Img = safeCanvasDataUrl('detailComparisonChartYear1');
+    const detailChartYear2Img = safeCanvasDataUrl('detailComparisonChartYear2');
+    const detailTrendChartImg = safeCanvasDataUrl('detailTrendComparisonChart');
 
     // 5) congela scroll / topo
     document.documentElement.style.overflow = 'hidden';
@@ -2003,7 +2143,7 @@ async function exportarRelatorio() {
       <div id="pdfRoot">
         <div style="margin-bottom:10px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-            <img src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" style="height:32px;">
+            <img src="https://static.wixstatic.com/media/a6967f_eee0d017524f4a48bf2870cc2385c10b~mv2.png" style="height:32px;">
           </div>
           <h1 style="margin:0; font-size:18px; font-weight:700;">Dashboard de Qualidade</h1>
           <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Sistema de Análise de Não Conformidades</p>
@@ -2051,6 +2191,59 @@ async function exportarRelatorio() {
             </div>
           </div>
         </div>
+
+        <!-- Análise em Detalhe (se tiver dados) -->
+        ${(() => {
+          const key = (() => {
+            const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
+            const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
+            return `${ents}_${anos}`;
+          })();
+          const allData = (() => {
+            const stored = localStorage.getItem(DETAILED_ANALYSIS_STORAGE_KEY);
+            return stored ? JSON.parse(stored) : {};
+          })();
+          const saved = allData[key];
+          
+          if (!saved) return '';
+          
+          const hasData = saved.year1 || saved.year2 || saved.mws200 || saved.mws300 || saved.mws500 || saved.mws700 || saved.mws715 || saved.analysis;
+          if (!hasData) return '';
+
+          return `
+            <div class="pdfRow" style="border-top:2px solid #e2e8f0; padding-top:8px; margin-top:4px;">
+              <h3 style="margin:0 0 6px 0; font-size:11px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:4px;">
+                <span style="width:6px; height:6px; background:#a855f7; border-radius:50%;"></span>Análise em Detalhe
+              </h3>
+              <div style="display:grid; grid-template-columns: 30% 70%; gap:10px; font-size:9px;">
+                <!-- Column A: 30% -->
+                <div style="background:#f8f6ff; padding:6px; border-radius:6px; border:1px solid #e9d5ff;">
+                  <div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #ddd6fe;">
+                    <p style="margin:0; font-weight:700; color:#6b21a8; font-size:8px;">ANOS</p>
+                    <div style="margin-top:2px; font-weight:600; color:#0f172a; font-size:8px;">
+                      <div>\${saved.year1 || '-'}</div>
+                      \${saved.year2 ? \`<div>\${saved.year2}</div>\` : ''}
+                    </div>
+                  </div>
+                  <div>
+                    <p style="margin:0; font-weight:700; color:#6b21a8; font-size:8px;">EQUIPAMENTOS</p>
+                    <div style="margin-top:3px; font-size:8px;">
+                      ${saved.mws200 ? `<div>MWS200: ${saved.mws200}</div>` : ''}
+                      ${saved.mws300 ? `<div>MWS300: ${saved.mws300}</div>` : ''}
+                      ${saved.mws500 ? `<div>MWS500: ${saved.mws500}</div>` : ''}
+                      ${saved.mws700 ? `<div>MWS700: ${saved.mws700}</div>` : ''}
+                      ${saved.mws715 ? `<div>MWS715: ${saved.mws715}</div>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <!-- Column B: 70% -->
+                <div style="background:#f1f5f9; padding:6px; border-radius:6px; border:1px solid #cbd5e1; font-size:8px; line-height:1.4;">
+                  <p style="margin:0; white-space:pre-wrap; word-wrap:break-word; color:#0f172a;">${saved.analysis || ''}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        })()}
 
         <div style="margin-top:6px; display:flex; justify-content:flex-end;">
           <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
@@ -2260,6 +2453,348 @@ function renderEntidadeTags() {
   });
 }
 
+/* ========= DETAILED ANALYSIS SECTION ========= */
+
+// Storage key para análises em detalhe
+const DETAILED_ANALYSIS_STORAGE_KEY = 'detailedAnalysisData';
+
+function getDetailedAnalysisData() {
+  const stored = localStorage.getItem(DETAILED_ANALYSIS_STORAGE_KEY);
+  return stored ? JSON.parse(stored) : {};
+}
+
+function saveDetailedAnalysisData(key, data) {
+  const all = getDetailedAnalysisData();
+  all[key] = data;
+  localStorage.setItem(DETAILED_ANALYSIS_STORAGE_KEY, JSON.stringify(all));
+}
+
+function deleteDetailedAnalysisData(key) {
+  const all = getDetailedAnalysisData();
+  delete all[key];
+  localStorage.setItem(DETAILED_ANALYSIS_STORAGE_KEY, JSON.stringify(all));
+}
+
+function getDetailedAnalysisKey() {
+  // Key format: "entidades_anos" (ex: "todos_2024,2025")
+  const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
+  const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
+  return `${ents}_${anos}`;
+}
+
+function updateDetailedAnalysisSection(filtered) {
+  const section = $('detailedAnalysisSection');
+  if (!section) return;
+
+  // Mostrar/esconder o container conforme haja dados
+  if (filtered.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+
+  // Atualizar dropdowns de anos com anos presentes nos dados
+  const anos = unique(filtered.map(parseYear).filter(Boolean)).sort((a, b) => a - b);
+  const yearSelect1 = $('detailAnalysisYear1');
+  const yearSelect2 = $('detailAnalysisYear2');
+  
+  if (yearSelect1) {
+    const currentValue1 = yearSelect1.value;
+    yearSelect1.innerHTML = '<option value="">-- Selecionar --</option>' +
+      anos.map(a => `<option value="${a}">${a}</option>`).join('');
+    yearSelect1.value = currentValue1;
+  }
+
+  if (yearSelect2) {
+    const currentValue2 = yearSelect2.value;
+    yearSelect2.innerHTML = '<option value="">-- Selecionar --</option>' +
+      anos.map(a => `<option value="${a}">${a}</option>`).join('');
+    yearSelect2.value = currentValue2;
+  }
+
+  // Carregar dados salvos (se existirem)
+  const key = getDetailedAnalysisKey();
+  const saved = getDetailedAnalysisData()[key];
+  
+  if (saved) {
+    if (yearSelect1) yearSelect1.value = saved.year1 || '';
+    if (yearSelect2) yearSelect2.value = saved.year2 || '';
+    $('detailMWS200Year1').value = saved.mws200Year1 || '';
+    $('detailMWS300Year1').value = saved.mws300Year1 || '';
+    $('detailMWS500Year1').value = saved.mws500Year1 || '';
+    $('detailMWS700Year1').value = saved.mws700Year1 || '';
+    $('detailMWS715Year1').value = saved.mws715Year1 || '';
+    $('detailMWS200Year2').value = saved.mws200Year2 || '';
+    $('detailMWS300Year2').value = saved.mws300Year2 || '';
+    $('detailMWS500Year2').value = saved.mws500Year2 || '';
+    $('detailMWS700Year2').value = saved.mws700Year2 || '';
+    $('detailMWS715Year2').value = saved.mws715Year2 || '';
+    $('detailAnalysisText').value = saved.analysis || '';
+  }
+
+  // Setup chart update listeners and update charts
+  setupDetailedAnalysisChartListeners();
+  updateDetailedAnalysisComparisonChart();
+}
+
+function updateDetailedAnalysisComparisonChart() {
+  updateDetailedAnalysisChartForYear(1);
+  updateDetailedAnalysisChartForYear(2);
+  updateDetailedAnalysisTrendChart();
+}
+
+function updateDetailedAnalysisChartForYear(year) {
+  const canvasId = `detailComparisonChartYear${year}`;
+  const canvas = $(canvasId);
+  if (!canvas) return;
+
+  const suffix = `Year${year}`;
+  const mws200 = parseInt($(`detailMWS200${suffix}`).value || 0);
+  const mws300 = parseInt($(`detailMWS300${suffix}`).value || 0);
+  const mws500 = parseInt($(`detailMWS500${suffix}`).value || 0);
+  const mws700 = parseInt($(`detailMWS700${suffix}`).value || 0);
+  const mws715 = parseInt($(`detailMWS715${suffix}`).value || 0);
+
+  const total = mws200 + mws300 + mws500 + mws700 + mws715;
+
+  // Destroy existing chart
+  const chartKey = `detailComparison${year}`;
+  if (charts[chartKey]) {
+    charts[chartKey].destroy();
+    charts[chartKey] = null;
+  }
+
+  if (total === 0) {
+    // Show empty state
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  // Create pie chart
+  charts[chartKey] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: ['MWS200', 'MWS300', 'MWS500', 'MWS700', 'MWS715'],
+      datasets: [{
+        data: [mws200, mws300, mws500, mws700, mws715],
+        backgroundColor: [
+          'rgba(59, 130, 246, 0.8)',    // Blue
+          'rgba(34, 197, 94, 0.8)',     // Green
+          'rgba(239, 68, 68, 0.8)',     // Red
+          'rgba(249, 115, 22, 0.8)',    // Orange
+          'rgba(168, 85, 247, 0.8)'     // Purple
+        ],
+        borderColor: [
+          'rgb(59, 130, 246)',
+          'rgb(34, 197, 94)',
+          'rgb(239, 68, 68)',
+          'rgb(249, 115, 22)',
+          'rgb(168, 85, 247)'
+        ],
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      layout: {
+        padding: {
+          left: 0
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'left',
+          align: 'center',
+          labels: {
+            font: { size: 10, weight: 'bold' },
+            padding: 12,
+            usePointStyle: true,
+            pointStyle: 'circle',
+            textAlign: 'left'
+          }
+        },
+        datalabels: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed;
+              const percentage = ((value / total) * 100).toFixed(1);
+              return `${value} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateDetailedAnalysisTrendChart() {
+  const canvas = $('detailTrendComparisonChart');
+  if (!canvas) return;
+
+  const mws200Year1 = parseInt($('detailMWS200Year1').value || 0);
+  const mws300Year1 = parseInt($('detailMWS300Year1').value || 0);
+  const mws500Year1 = parseInt($('detailMWS500Year1').value || 0);
+  const mws700Year1 = parseInt($('detailMWS700Year1').value || 0);
+  const mws715Year1 = parseInt($('detailMWS715Year1').value || 0);
+
+  const mws200Year2 = parseInt($('detailMWS200Year2').value || 0);
+  const mws300Year2 = parseInt($('detailMWS300Year2').value || 0);
+  const mws500Year2 = parseInt($('detailMWS500Year2').value || 0);
+  const mws700Year2 = parseInt($('detailMWS700Year2').value || 0);
+  const mws715Year2 = parseInt($('detailMWS715Year2').value || 0);
+
+  // Destroy existing chart
+  if (charts.detailTrendComparison) {
+    charts.detailTrendComparison.destroy();
+    charts.detailTrendComparison = null;
+  }
+
+  const hasData = mws200Year1 > 0 || mws300Year1 > 0 || mws500Year1 > 0 || mws700Year1 > 0 || mws715Year1 > 0 ||
+                  mws200Year2 > 0 || mws300Year2 > 0 || mws500Year2 > 0 || mws700Year2 > 0 || mws715Year2 > 0;
+
+  if (!hasData) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  // Create line chart
+  charts.detailTrendComparison = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: ['MWS200', 'MWS300', 'MWS500', 'MWS700', 'MWS715'],
+      datasets: [
+        {
+          label: 'Ano 1',
+          data: [mws200Year1, mws300Year1, mws500Year1, mws700Year1, mws715Year1],
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 3,
+          pointRadius: 5,
+          pointBackgroundColor: 'rgb(59, 130, 246)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: 'Ano 2',
+          data: [mws200Year2, mws300Year2, mws500Year2, mws700Year2, mws715Year2],
+          borderColor: 'rgb(34, 197, 94)',
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          borderWidth: 3,
+          pointRadius: 5,
+          pointBackgroundColor: 'rgb(34, 197, 94)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 11, weight: 'bold' },
+            padding: 15,
+            usePointStyle: true,
+            pointStyle: 'circle'
+          }
+        },
+        datalabels: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 10,
+          titleFont: { size: 12, weight: 'bold' },
+          bodyFont: { size: 11 },
+          callbacks: {
+            label: (context) => {
+              return `${context.dataset.label}: ${context.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Quantidade' },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' }
+        },
+        x: {
+          title: { display: true, text: 'Equipamentos' },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+function setupDetailedAnalysisChartListeners() {
+  const inputsYear1 = ['detailMWS200Year1', 'detailMWS300Year1', 'detailMWS500Year1', 'detailMWS700Year1', 'detailMWS715Year1'];
+  const inputsYear2 = ['detailMWS200Year2', 'detailMWS300Year2', 'detailMWS500Year2', 'detailMWS700Year2', 'detailMWS715Year2'];
+  const allInputs = [...inputsYear1, ...inputsYear2];
+  
+  allInputs.forEach(id => {
+    const elem = $(id);
+    if (elem) {
+      elem.addEventListener('input', updateDetailedAnalysisComparisonChart);
+      elem.addEventListener('change', updateDetailedAnalysisComparisonChart);
+    }
+  });
+}
+
+function initDetailedAnalysisEvents() {
+  const saveBtn = $('saveDetailedAnalysisBtn');
+  if (!saveBtn) return;
+
+  saveBtn.addEventListener('click', () => {
+    const year1 = $('detailAnalysisYear1').value || '';
+    const year2 = $('detailAnalysisYear2').value || '';
+    const mws200Year1 = $('detailMWS200Year1').value || '';
+    const mws300Year1 = $('detailMWS300Year1').value || '';
+    const mws500Year1 = $('detailMWS500Year1').value || '';
+    const mws700Year1 = $('detailMWS700Year1').value || '';
+    const mws715Year1 = $('detailMWS715Year1').value || '';
+    const mws200Year2 = $('detailMWS200Year2').value || '';
+    const mws300Year2 = $('detailMWS300Year2').value || '';
+    const mws500Year2 = $('detailMWS500Year2').value || '';
+    const mws700Year2 = $('detailMWS700Year2').value || '';
+    const mws715Year2 = $('detailMWS715Year2').value || '';
+    const analysis = $('detailAnalysisText').value || '';
+
+    // Verificar se há dados preenchidos
+    const hasData = year1 || year2 || mws200Year1 || mws300Year1 || mws500Year1 || mws700Year1 || mws715Year1 || 
+                    mws200Year2 || mws300Year2 || mws500Year2 || mws700Year2 || mws715Year2 || analysis;
+
+    const key = getDetailedAnalysisKey();
+    
+    if (hasData) {
+      saveDetailedAnalysisData(key, {
+        year1, year2, 
+        mws200Year1, mws300Year1, mws500Year1, mws700Year1, mws715Year1,
+        mws200Year2, mws300Year2, mws500Year2, mws700Year2, mws715Year2,
+        analysis
+      });
+      alert('Análise guardada com sucesso!');
+    } else {
+      deleteDetailedAnalysisData(key);
+      alert('Análise limpa!');
+    }
+  });
+}
+
 /* ========= EVENTS ========= */
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -2267,6 +2802,9 @@ window.addEventListener('DOMContentLoaded', () => {
   $('refreshDataBtn')?.addEventListener('click', refreshData);
   $('exportPdfBtn')?.addEventListener('click', exportarRelatorio);
   $('logoutBtn')?.addEventListener('click', () => location.reload());
+
+  // Initialize detailed analysis events
+  initDetailedAnalysisEvents();
 
   $('passInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleLogin();

@@ -1876,6 +1876,13 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
     wrapper2.style.zoom = '1';
     stage2Canvas.appendChild(wrapper2);
 
+    // Get selected years for PDF labels
+    const pdfYear1 = $('detailYear1Select')?.value || 'Ano 1';
+    const pdfYear2 = $('detailYear2Select')?.value || 'Ano 2';
+    const pdfYear1Label = `Ano ${pdfYear1}`;
+    const pdfYear2Label = `Ano ${pdfYear2}`;
+    const pdfTrendTitle = `Comparação de Tendências - ${pdfYear1Label} vs ${pdfYear2Label}`;
+
     const buildHtml2 = () => `
       <style>
         #pdfRoot2, #pdfRoot2 * { box-sizing: border-box; }
@@ -1892,7 +1899,7 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
         <div class="pdfRow2" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
           <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f8f6ff;">
             <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; color:#6b21a8; border-bottom:1px solid #e9d5ff; padding-bottom:4px;">
-              Ano 1 - Distribuição de Equipamentos
+              ${pdfYear1Label} - Distribuição de Equipamentos
             </h3>
             <div style="text-align:center; height:180px; display:flex; align-items:center; justify-content:center;">
               ${detailChartYear1Img ? `<img src="${detailChartYear1Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:9px;">Sem dados</p>'}
@@ -1900,7 +1907,7 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
           </div>
           <div style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f8f6ff;">
             <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; color:#6b21a8; border-bottom:1px solid #e9d5ff; padding-bottom:4px;">
-              Ano 2 - Distribuição de Equipamentos
+              ${pdfYear2Label} - Distribuição de Equipamentos
             </h3>
             <div style="text-align:center; height:180px; display:flex; align-items:center; justify-content:center;">
               ${detailChartYear2Img ? `<img src="${detailChartYear2Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:9px;">Sem dados</p>'}
@@ -1910,7 +1917,7 @@ function imgCard(title, imgDataUrl, chartHeightPx = 120) {
 
         <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:8px; border-radius:8px; background:#f8f6ff;">
           <h3 style="margin:0 0 8px 0; font-size:9px; font-weight:700; color:#6b21a8; border-bottom:1px solid #e9d5ff; padding-bottom:4px;">
-            Comparação de Tendências - Ano 1 vs Ano 2
+            ${pdfTrendTitle}
           </h3>
           <div style="text-align:center; height:180px; display:flex; align-items:center; justify-content:center;">
             ${detailTrendChartImg ? `<img src="${detailTrendChartImg}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:9px;">Sem dados</p>'}
@@ -2662,6 +2669,18 @@ function updateDetailedAnalysisTrendChart() {
     return;
   }
 
+  // Get year labels from dropdowns
+  const year1Elem = $('detailYear1Select');
+  const year2Elem = $('detailYear2Select');
+  const year1Label = year1Elem ? `Ano ${year1Elem.value}` : 'Ano 1';
+  const year2Label = year2Elem ? `Ano ${year2Elem.value}` : 'Ano 2';
+
+  // Update pie chart labels
+  const chartYear1Label = $('detailChartYear1Label');
+  const chartYear2Label = $('detailChartYear2Label');
+  if (chartYear1Label) chartYear1Label.textContent = `${year1Label} - Distribuição de Equipamentos`;
+  if (chartYear2Label) chartYear2Label.textContent = `${year2Label} - Distribuição de Equipamentos`;
+
   // Create line chart
   charts.detailTrendComparison = new Chart(canvas, {
     type: 'line',
@@ -2669,7 +2688,7 @@ function updateDetailedAnalysisTrendChart() {
       labels: ['MWS200', 'MWS300', 'MWS500', 'MWS700', 'MWS715'],
       datasets: [
         {
-          label: 'Ano 1',
+          label: year1Label,
           data: [mws200Year1, mws300Year1, mws500Year1, mws700Year1, mws715Year1],
           borderColor: 'rgb(59, 130, 246)',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -2682,7 +2701,7 @@ function updateDetailedAnalysisTrendChart() {
           fill: true
         },
         {
-          label: 'Ano 2',
+          label: year2Label,
           data: [mws200Year2, mws300Year2, mws500Year2, mws700Year2, mws715Year2],
           borderColor: 'rgb(34, 197, 94)',
           backgroundColor: 'rgba(34, 197, 94, 0.1)',

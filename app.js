@@ -214,7 +214,7 @@ async function fetchData() {
 }
 
 async function refreshData() {
-  console.log('🔄 refreshData() INICIADO');
+  console.log('🔄 refreshData() INICIADO - Limpando apenas "Análise em Detalhe"');
   
   const icon = $('refreshIcon');
   const btn = $('refreshDataBtn');
@@ -226,25 +226,20 @@ async function refreshData() {
   if (icon) icon.style.animation = 'spin 1.2s linear infinite';
 
   try {
-    // Limpar cache
-    console.log('🗑️  Limpando localStorage...');
+    // Limpar apenas os dados salvos da "Análise em Detalhe"
+    console.log('🗑️  Limpando dados salvos da "Análise em Detalhe"...');
     localStorage.removeItem('detailedAnalysisData');
-    console.log('✅ Cache removida');
+    console.log('✅ Cache de "Análise em Detalhe" removida');
     
-    // Destruir TODOS os gráficos ANTES de fetchData
-    console.log('📊 Destruindo TODOS os gráficos do dashboard...');
-    const allChartIds = [
-      'trend',                           // Dashboard: Tendência Mensal
-      'pie',                             // Dashboard: Status Geral RNCs
-      'yearComparison',                  // Dashboard: Total RNCs por Ano
-      'topKeywords',                     // Dashboard: Top 5 Keywords
-      'tempoResolucao',                  // Dashboard: Tempo de Resolução
-      'detailComparison1',               // Análise Detalhada: Ano 1 (chave interna)
-      'detailComparison2',               // Análise Detalhada: Ano 2 (chave interna)
-      'detailTrendComparison'            // Análise Detalhada: Comparação Tendências (chave interna)
+    // Destruir apenas os gráficos da "Análise em Detalhe"
+    console.log('📊 Destruindo gráficos da "Análise em Detalhe"...');
+    const detailChartIds = [
+      'detailComparison1',               // Análise Detalhada: Ano 1
+      'detailComparison2',               // Análise Detalhada: Ano 2
+      'detailTrendComparison'            // Análise Detalhada: Comparação Tendências
     ];
     
-    allChartIds.forEach(chartKey => {
+    detailChartIds.forEach(chartKey => {
       if (charts[chartKey]) {
         console.log(`  🗑️  Destruindo gráfico: ${chartKey}`);
         charts[chartKey].destroy();
@@ -252,9 +247,9 @@ async function refreshData() {
       }
     });
     
-    // Limpar canvas também
-    const canvasIds = ['lineTrendChart', 'rncPieChart', 'yearComparisonChart', 'topKeywordsChart', 'tempoResolucaoChart', 'detailComparisonChartYear1', 'detailComparisonChartYear2', 'detailTrendComparisonChart'];
-    canvasIds.forEach(canvasId => {
+    // Limpar canvas dos gráficos de detalhe
+    const detailCanvasIds = ['detailComparisonChartYear1', 'detailComparisonChartYear2', 'detailTrendComparisonChart'];
+    detailCanvasIds.forEach(canvasId => {
       const canvas = $(canvasId);
       if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -262,44 +257,10 @@ async function refreshData() {
         console.log(`  ⬜ Canvas limpo: ${canvasId}`);
       }
     });
-    console.log('✅ Todos os gráficos destruídos e canvas limpo');
+    console.log('✅ Gráficos de "Análise em Detalhe" destruídos');
     
-    console.log('📡 Buscando dados...');
-    await fetchData();
-    console.log('✅ Dados carregados');
-    
-    // Destruir novamente os gráficos após fetchData (pois updateDashboard os recria)
-    console.log('📊 Destruindo gráficos novamente após fetchData...');
-    const allChartKeys = [
-      'trend',                           // Dashboard: Tendência Mensal
-      'pie',                             // Dashboard: Status Geral RNCs
-      'yearComparison',                  // Dashboard: Total RNCs por Ano
-      'topKeywords',                     // Dashboard: Top 5 Keywords
-      'tempoResolucao',                  // Dashboard: Tempo de Resolução
-      'detailComparison1',               // Análise Detalhada: Ano 1
-      'detailComparison2',               // Análise Detalhada: Ano 2
-      'detailTrendComparison'            // Análise Detalhada: Comparação Tendências
-    ];
-    allChartKeys.forEach(chartKey => {
-      if (charts[chartKey]) {
-        console.log(`  🗑️  Destruindo gráfico: ${chartKey}`);
-        charts[chartKey].destroy();
-        charts[chartKey] = null;
-      }
-    });
-    
-    // Limpar canvas novamente
-    canvasIds.forEach(canvasId => {
-      const canvas = $(canvasId);
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    });
-    console.log('✅ Gráficos destruídos novamente após renderização');
-    
-    // Colocar "-" em todos os campos (valor inicial, que não renderiza gráficos)
-    console.log('📝 Colocando "-" em todos os campos...');
+    // Resetar campos de "Análise em Detalhe"
+    console.log('📝 Resetando campos de "Análise em Detalhe"...');
     const detailFields = [
       'detailAnalysisYear1', 'detailAnalysisYear2',
       'detailMWS200Year1', 'detailMWS300Year1', 'detailMWS500Year1', 'detailMWS700Year1', 'detailMWS715Year1',
@@ -310,14 +271,20 @@ async function refreshData() {
     detailFields.forEach(fieldId => {
       const field = $(fieldId);
       if (field) {
-        field.value = '-';
-        console.log(`  ✓ Campo ${fieldId} = "-"`);
+        field.value = '';
+        console.log(`  ✓ Campo ${fieldId} resetado`);
       }
     });
-    console.log('✅ Campos resetados para "-"');
+    console.log('✅ Campos resetados');
     
-    alert(`Dados atualizados com sucesso! (${allData.length} registos)`);
+    // Recriar os gráficos de detalhe com dados vazios
+    console.log('📊 Recriando gráficos de "Análise em Detalhe"...');
+    updateDetailedAnalysisComparisonChart();
+    console.log('✅ Gráficos recriados');
+    
+    alert(`"Análise em Detalhe" atualizada com sucesso!`);
   } catch (e) {
+    console.error(e);
     alert(`Erro ao atualizar: ${e.message}`);
   } finally {
     if (icon) icon.style.animation = 'none';

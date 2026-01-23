@@ -2323,143 +2323,147 @@ async function exportarRelatorio() {
     // Page 1: Main dashboard
     pdf.addImage(imgData, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
 
-    // Page 2: Detailed Analysis
-    pdf.addPage();
-    
-    stage2 = document.createElement('div');
-    stage2.id = 'pdfStage2';
-    stage2.style.position = 'fixed';
-    stage2.style.left = '0';
-    stage2.style.top = '0';
-    stage2.style.width = `${PAGE_W_PX}px`;
-    stage2.style.height = `${PAGE_H_PX}px`;
-    stage2.style.background = '#fff';
-    stage2.style.zIndex = '2147483646';
-    stage2.style.pointerEvents = 'none';
-    stage2.style.opacity = '0.01';
-    stage2.style.overflow = 'hidden';
-    stage2.style.transform = 'none';
-    stage2.style.zoom = '1';
-    document.body.appendChild(stage2);
+    // ✅ Page 2: só se houver dados na "Análise em Detalhe"
+    const includeDetailPage = detailedAnalysisHasData();
 
-    const wrapper2 = document.createElement('div');
-    wrapper2.id = 'pdfWrapper2';
-    wrapper2.style.position = 'absolute';
-    wrapper2.style.left = '0';
-    wrapper2.style.top = '0';
-    wrapper2.style.width = `${PAGE_W_PX}px`;
-    wrapper2.style.height = `${PAGE_H_PX}px`;
-    wrapper2.style.background = '#fff';
-    wrapper2.style.boxSizing = 'border-box';
-    wrapper2.style.padding = `${PAD_PX}px`;
-    wrapper2.style.overflow = 'hidden';
-    wrapper2.style.transform = 'none';
-    wrapper2.style.zoom = '1';
-    stage2.appendChild(wrapper2);
+    if (includeDetailPage) {
+      pdf.addPage();
+      
+      stage2 = document.createElement('div');
+      stage2.id = 'pdfStage2';
+      stage2.style.position = 'fixed';
+      stage2.style.left = '0';
+      stage2.style.top = '0';
+      stage2.style.width = `${PAGE_W_PX}px`;
+      stage2.style.height = `${PAGE_H_PX}px`;
+      stage2.style.background = '#fff';
+      stage2.style.zIndex = '2147483646';
+      stage2.style.pointerEvents = 'none';
+      stage2.style.opacity = '0.01';
+      stage2.style.overflow = 'hidden';
+      stage2.style.transform = 'none';
+      stage2.style.zoom = '1';
+      document.body.appendChild(stage2);
 
-    // Get selected years for PDF labels
-    const pdfYear1 = $('detailAnalysisYear1')?.value || 'Ano 1';
-    const pdfYear2 = $('detailAnalysisYear2')?.value || 'Ano 2';
-    const pdfYear1Label = `Ano ${pdfYear1}`;
-    const pdfYear2Label = `Ano ${pdfYear2}`;
-    const pdfTrendTitle = `Comparação de Tendências - ${pdfYear1Label} vs ${pdfYear2Label}`;
+      const wrapper2 = document.createElement('div');
+      wrapper2.id = 'pdfWrapper2';
+      wrapper2.style.position = 'absolute';
+      wrapper2.style.left = '0';
+      wrapper2.style.top = '0';
+      wrapper2.style.width = `${PAGE_W_PX}px`;
+      wrapper2.style.height = `${PAGE_H_PX}px`;
+      wrapper2.style.background = '#fff';
+      wrapper2.style.boxSizing = 'border-box';
+      wrapper2.style.padding = `${PAD_PX}px`;
+      wrapper2.style.overflow = 'hidden';
+      wrapper2.style.transform = 'none';
+      wrapper2.style.zoom = '1';
+      stage2.appendChild(wrapper2);
 
-    const buildHtml2 = () => `
-      <style>
-        #pdfRoot2, #pdfRoot2 * { box-sizing: border-box; }
-        #pdfRoot2 { width:100%; max-width:100%; overflow:hidden; font-family: Arial, sans-serif; background:#fff; color:#0f172a; }
-        .pdfRow2 { margin-bottom:12px; }
-      </style>
-      <div id="pdfRoot2">
-        <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
-          <h2 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
-            <span style="width:8px; height:8px; background:#a855f7; border-radius:50%;"></span>Análise em Detalhe
-          </h2>
-        </div>
-        
-        <div class="pdfRow2" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-          <div style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f8f6ff;">
-            <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; color:#6b21a8; border-bottom:2px solid #e9d5ff; padding-bottom:6px;">
-              ${pdfYear1Label} - Distribuição de Equipamentos
-            </h3>
-            <div style="text-align:center; height:200px; display:flex; align-items:center; justify-content:center;">
-              ${detailChartYear1Img ? `<img src="${detailChartYear1Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:10px;">Sem dados</p>'}
+      // Get selected years for PDF labels
+      const pdfYear1 = $('detailAnalysisYear1')?.value || 'Ano 1';
+      const pdfYear2 = $('detailAnalysisYear2')?.value || 'Ano 2';
+      const pdfYear1Label = `Ano ${pdfYear1}`;
+      const pdfYear2Label = `Ano ${pdfYear2}`;
+      const pdfTrendTitle = `Comparação de Tendências - ${pdfYear1Label} vs ${pdfYear2Label}`;
+
+      const buildHtml2 = () => `
+        <style>
+          #pdfRoot2, #pdfRoot2 * { box-sizing: border-box; }
+          #pdfRoot2 { width:100%; max-width:100%; overflow:hidden; font-family: Arial, sans-serif; background:#fff; color:#0f172a; }
+          .pdfRow2 { margin-bottom:12px; }
+        </style>
+        <div id="pdfRoot2">
+          <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:3px solid #0f172a;">
+            <h2 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
+              <span style="width:8px; height:8px; background:#a855f7; border-radius:50%;"></span>Análise em Detalhe
+            </h2>
+          </div>
+          
+          <div class="pdfRow2" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f8f6ff;">
+              <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; color:#6b21a8; border-bottom:2px solid #e9d5ff; padding-bottom:6px;">
+                ${pdfYear1Label} - Distribuição de Equipamentos
+              </h3>
+              <div style="text-align:center; height:200px; display:flex; align-items:center; justify-content:center;">
+                ${detailChartYear1Img ? `<img src="${detailChartYear1Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:10px;">Sem dados</p>'}
+              </div>
+            </div>
+            <div style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f8f6ff;">
+              <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; color:#6b21a8; border-bottom:2px solid #e9d5ff; padding-bottom:6px;">
+                ${pdfYear2Label} - Distribuição de Equipamentos
+              </h3>
+              <div style="text-align:center; height:200px; display:flex; align-items:center; justify-content:center;">
+                ${detailChartYear2Img ? `<img src="${detailChartYear2Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:10px;">Sem dados</p>'}
+              </div>
             </div>
           </div>
-          <div style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f8f6ff;">
+
+          <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f8f6ff;">
             <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; color:#6b21a8; border-bottom:2px solid #e9d5ff; padding-bottom:6px;">
-              ${pdfYear2Label} - Distribuição de Equipamentos
+              ${pdfTrendTitle}
             </h3>
             <div style="text-align:center; height:200px; display:flex; align-items:center; justify-content:center;">
-              ${detailChartYear2Img ? `<img src="${detailChartYear2Img}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:10px;">Sem dados</p>'}
+              ${detailTrendChartImg ? `<img src="${detailTrendChartImg}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:10px;">Sem dados</p>'}
             </div>
           </div>
-        </div>
 
-        <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f8f6ff;">
-          <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; color:#6b21a8; border-bottom:2px solid #e9d5ff; padding-bottom:6px;">
-            ${pdfTrendTitle}
-          </h3>
-          <div style="text-align:center; height:200px; display:flex; align-items:center; justify-content:center;">
-            ${detailTrendChartImg ? `<img src="${detailTrendChartImg}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<p style="color:#94a3b8; font-size:10px;">Sem dados</p>'}
+          <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f1f5f9;">
+            <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; border-bottom:1px solid #cbd5e1; padding-bottom:6px;">
+              Análise Pessoal Detalhada
+            </h3>
+            ${(() => {
+              const key = (() => {
+                const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
+                const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
+                return ents + '_' + anos;
+              })();
+              const allData = (() => {
+                const stored = localStorage.getItem(DETAILED_ANALYSIS_STORAGE_KEY);
+                return stored ? JSON.parse(stored) : {};
+              })();
+              const saved = allData[key];
+              
+              if (!saved || !saved.analysis) return '<p style="margin:0; font-size:10px; color:#94a3b8; font-style:italic;">Sem análise registada</p>';
+              
+              return '<p style="margin:0; font-size:9px; line-height:1.6; color:#0f172a; white-space:pre-wrap; word-wrap:break-word;">' + (saved.analysis || '') + '</p>';
+            })()}
+          </div>
+
+          <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+            <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
           </div>
         </div>
+      `;
 
-        <div class="pdfRow2" style="border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:#f1f5f9;">
-          <h3 style="margin:0 0 10px 0; font-size:10px; font-weight:700; border-bottom:1px solid #cbd5e1; padding-bottom:6px;">
-            Análise Pessoal Detalhada
-          </h3>
-          ${(() => {
-            const key = (() => {
-              const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
-              const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
-              return ents + '_' + anos;
-            })();
-            const allData = (() => {
-              const stored = localStorage.getItem(DETAILED_ANALYSIS_STORAGE_KEY);
-              return stored ? JSON.parse(stored) : {};
-            })();
-            const saved = allData[key];
-            
-            if (!saved || !saved.analysis) return '<p style="margin:0; font-size:10px; color:#94a3b8; font-style:italic;">Sem análise registada</p>';
-            
-            return '<p style="margin:0; font-size:9px; line-height:1.6; color:#0f172a; white-space:pre-wrap; word-wrap:break-word;">' + (saved.analysis || '') + '</p>';
-          })()}
-        </div>
+      wrapper2.innerHTML = buildHtml2();
+      await waitTwoFrames();
 
-        <div style="margin-top:10px; display:flex; justify-content:flex-end;">
-          <img src="https://static.wixstatic.com/media/a6967f_0db968f0a9864debae3bd716ad0ebeb6~mv2.png" style="height:20px; opacity:0.75;">
-        </div>
-      </div>
-    `;
+      // Load images for page 2
+      const imgs2 = Array.from(wrapper2.querySelectorAll('img'));
+      await Promise.all(imgs2.map(img => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+      }));
+      await waitTwoFrames();
 
-    wrapper2.innerHTML = buildHtml2();
-    await waitTwoFrames();
+      // Capture page 2
+      const canvas2 = await html2canvas(wrapper2, {
+        backgroundColor: '#ffffff',
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        scrollX: -oldScrollX,
+        scrollY: -oldScrollY,
+        width: PAGE_W_PX,
+        height: PAGE_H_PX,
+        windowWidth: PAGE_W_PX,
+        windowHeight: PAGE_H_PX
+      });
 
-    // Load images for page 2
-    const imgs2 = Array.from(wrapper2.querySelectorAll('img'));
-    await Promise.all(imgs2.map(img => {
-      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-      return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
-    }));
-    await waitTwoFrames();
-
-    // Capture page 2
-    const canvas2 = await html2canvas(wrapper2, {
-      backgroundColor: '#ffffff',
-      scale: 3,
-      useCORS: true,
-      allowTaint: true,
-      scrollX: -oldScrollX,
-      scrollY: -oldScrollY,
-      width: PAGE_W_PX,
-      height: PAGE_H_PX,
-      windowWidth: PAGE_W_PX,
-      windowHeight: PAGE_H_PX
-    });
-
-    const imgData2 = canvas2.toDataURL('image/png', 1.0);
-    pdf.addImage(imgData2, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
+      const imgData2 = canvas2.toDataURL('image/png', 1.0);
+      pdf.addImage(imgData2, 'PNG', PAD_MM, PAD_MM, CONTENT_W_MM, CONTENT_H_MM, undefined, 'FAST');
+    }
 
     pdf.save(`Relatorio_Qualidade_${new Date().toISOString().slice(0,10)}.pdf`);
 
@@ -2635,6 +2639,26 @@ function getDetailedAnalysisKey() {
   const ents = selectedEntidades.length > 0 ? selectedEntidades.sort().join(',') : 'todas';
   const anos = selectedYears.length > 0 ? selectedYears.sort().join(',') : 'todos';
   return `${ents}_${anos}`;
+}
+
+function detailedAnalysisHasData() {
+  // Verifica se há dados salvos na análise detalhada
+  const key = getDetailedAnalysisKey();
+  const data = getDetailedAnalysisData();
+  const saved = data[key];
+  
+  if (!saved) return false;
+  
+  // Verifica se algum campo tem dados
+  const hasEquipmentData = (
+    saved.mws200Year1 || saved.mws300Year1 || saved.mws500Year1 || saved.mws700Year1 || saved.mws715Year1 ||
+    saved.mws200Year2 || saved.mws300Year2 || saved.mws500Year2 || saved.mws700Year2 || saved.mws715Year2
+  );
+  
+  const hasAnalysisText = !!(saved.analysis && saved.analysis.trim());
+  const hasYearSelection = !!(saved.year1 || saved.year2);
+  
+  return hasEquipmentData || hasAnalysisText || hasYearSelection;
 }
 
 function updateDetailedAnalysisSection(filtered) {
